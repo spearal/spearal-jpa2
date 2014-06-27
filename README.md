@@ -5,7 +5,7 @@ Spearal JPA2
 
 Spearal is a compact binary format for exchanging arbitrary complex data between various endpoints such as Java EE, JavaScript / HTML, Android and iOS applications.
 
-Spearal-Jpa2 is an extension of Spearal-Java which supports JPA2+ entities and deal with unitialized properties.
+Spearal-Jpa2 is an extension of Spearal-Java which supports JPA2+ entities and deal with uninitialized properties.
 
 ## How to get and build the project?
 
