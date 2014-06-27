@@ -41,4 +41,4 @@ SpearalEncoder encoder = factory.newEncoder(baos);
 encoder.writeAny(entity);
 ````
 
-All unitialized properties in `entity` will be skipped.
+All uninitialized properties in `entity` will be skipped.
