@@ -1,0 +1,20 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<persistence
+    xmlns="http://java.sun.com/xml/ns/persistence"
+    xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+    xsi:schemaLocation="http://java.sun.com/xml/ns/persistence http://java.sun.com/xml/ns/persistence/persistence_2_0.xsd"
+    version="2.0">
+    
+    <persistence-unit name="hibernate4-pu" transaction-type="RESOURCE_LOCAL">
+        <class>org.spearal.jpa2.model.Person</class>        
+        <class>org.spearal.jpa2.model.Contact</class>        
+        <exclude-unlisted-classes>true</exclude-unlisted-classes>
+        <properties>
+            <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect"/>
+            <property name="hibernate.hbm2ddl.auto" value="update"/>
+            <property name="hibernate.max_fetch_depth" value="3"/>
+        </properties>
+    </persistence-unit>
+    
+</persistence>
