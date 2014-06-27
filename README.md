@@ -30,7 +30,7 @@ The built library can then be found in the `build/libs/` directory.
 
 ## How to use the library?
 
-You don't need to do anything particular. Just add the spearal-jpa2-*.jar library to yopur classpath, it will be automatically loaded as a service.
+You don't need to do anything particular. Just add the `spearal-jpa2-*.jar` library to your classpath, it will be automatically loaded as a service.
 
 ````java
 SpearalFactory factory = new SpearalFactory();
