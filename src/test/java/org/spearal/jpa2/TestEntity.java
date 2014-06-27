@@ -34,7 +34,6 @@ import org.spearal.SpearalEncoder;
 import org.spearal.SpearalFactory;
 import org.spearal.configuration.PartialObjectFactory.UndefinedPropertyException;
 import org.spearal.jpa2.model.Person;
-import org.speral.jpa2.descriptor.EntityDescriptorFactory;
 
 /**
  * @author Franck WOLFF
@@ -106,7 +105,8 @@ public class TestEntity extends AbstractHibernate4TestUnit {
 		}
 		
 		SpearalFactory factory = new SpearalFactory();
-		factory.getContext().configure(new EntityDescriptorFactory());
+		// Unnecessary, loaded as a service:
+		// factory.getContext().configure(new EntityDescriptorFactory());
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
 		SpearalEncoder encoder = factory.newEncoder(out);
 		try {
@@ -118,7 +118,8 @@ public class TestEntity extends AbstractHibernate4TestUnit {
 		
 		byte[] bytes = out.toByteArray();
 		
-		factory = new SpearalFactory();
+		// Do not load any services here (pseudo-client application).
+		factory = new SpearalFactory(false);
 		SpearalDecoder decoder = factory.newDecoder(new ByteArrayInputStream(bytes));
 		try {
 			decoder.printAny(factory.newPrinter(System.out));
