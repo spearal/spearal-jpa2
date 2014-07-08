@@ -77,7 +77,7 @@ public class EntityDescriptorFactory implements EncoderBeanDescriptorFactory {
 		boolean cloned = false;
 		for (int i = 0; i < properties.length; i++) {
 			try {
-				Object propertyValue = properties[i].get(context, value);
+				Object propertyValue = properties[i].get(value);
 				if (!persistenceUtil.isLoaded(propertyValue)) {
 					if (!cloned) {
 						properties = properties.clone();
