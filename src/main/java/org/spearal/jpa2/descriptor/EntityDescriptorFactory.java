@@ -15,7 +15,7 @@
  * See the License for the specific language governing permissions and
  * limitations under the License.
  */
-package org.speral.jpa2.descriptor;
+package org.spearal.jpa2.descriptor;
 
 import javax.persistence.Entity;
 import javax.persistence.Persistence;
