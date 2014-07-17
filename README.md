@@ -12,7 +12,7 @@ Spearal-Jpa2 is an extension of Spearal-Java which supports JPA2+ entities and d
 First, you need to get, build and install Spearal-Java:
 
 ````sh
-$ git clone https://github.com/spearal/spearal-jpa2.git
+$ git clone https://github.com/spearal/spearal-java.git
 $ cd spearal-java
 $ ./gradlew install
 ````
@@ -22,7 +22,7 @@ Then, you can build Spearal JPA2:
 ````sh
 $ cd ..
 $ git clone https://github.com/spearal/spearal-jpa2.git
-$ cd spearal-java
+$ cd spearal-jpa2
 $ ./gradlew build
 ````
 
@@ -30,13 +30,4 @@ The built library can then be found in the `build/libs/` directory.
 
 ## How to use the library?
 
-You don't need to do anything particular. Just add the `spearal-jpa2-*.jar` library to your classpath, it will be automatically loaded as a service.
-
-````java
-SpearalFactory factory = new SpearalFactory();
-ByteArrayOutputStream baos = new ByteArrayOutputStream();
-SpearalEncoder encoder = factory.newEncoder(baos);
-encoder.writeAny(entity);
-````
-
-All uninitialized properties in `entity` will be skipped.
+TODO
