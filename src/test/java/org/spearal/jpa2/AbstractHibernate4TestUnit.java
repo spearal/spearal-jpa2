@@ -34,17 +34,32 @@ public abstract class AbstractHibernate4TestUnit {
 	
 	@Before
 	public void setUp() throws Exception {
+		String dbName = "testdb";
+		String persistenceUnitName = "hibernate4-pu";
+		boolean wrapped = false;
+		WithPersistenceUnit withPersistenceUnit = getClass().getAnnotation(WithPersistenceUnit.class);
+		
+		if (withPersistenceUnit != null) {
+			dbName = withPersistenceUnit.dbName();
+			persistenceUnitName = withPersistenceUnit.persistenceUnitName();
+			wrapped = withPersistenceUnit.wrapped();
+		}
+		
 		Properties props = new Properties();
 		props.put("javax.persistence.jdbc.driver", "org.h2.Driver");
-		props.put("javax.persistence.jdbc.url", "jdbc:h2:mem:testdb");
+		props.put("javax.persistence.jdbc.url", "jdbc:h2:mem:" + dbName);
 		props.put("javax.persistence.jdbc.user", "sa");
 		props.put("javax.persistence.jdbc.password", "");
-		entityManagerFactory = Persistence.createEntityManagerFactory("hibernate4-pu", props);
+		entityManagerFactory = Persistence.createEntityManagerFactory(persistenceUnitName, props);
+		if (wrapped)
+			entityManagerFactory = new EntityManagerFactoryWrapper(entityManagerFactory);
 	}
 
 	@After
 	public void tearDown() throws Exception {
-		entityManagerFactory.close();
-		entityManagerFactory = null;
+		if (entityManagerFactory != null) {
+			entityManagerFactory.close();
+			entityManagerFactory = null;
+		}
 	}
 }

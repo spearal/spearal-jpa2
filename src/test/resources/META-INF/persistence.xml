@@ -17,4 +17,15 @@
         </properties>
     </persistence-unit>
     
+    <persistence-unit name="hibernate4-merge-pu" transaction-type="RESOURCE_LOCAL">
+        <class>org.spearal.jpa2.model.Person</class>        
+        <class>org.spearal.jpa2.model.Contact</class>        
+        <exclude-unlisted-classes>true</exclude-unlisted-classes>
+        <properties>
+            <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect"/>
+            <property name="hibernate.hbm2ddl.auto" value="update"/>
+            <property name="hibernate.max_fetch_depth" value="3"/>
+        </properties>
+    </persistence-unit>
+    
 </persistence>
