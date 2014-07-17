@@ -20,7 +20,6 @@ package org.spearal.jpa2.impl;
 import java.beans.IntrospectionException;
 import java.beans.Introspector;
 import java.beans.PropertyDescriptor;
-import java.io.Serializable;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
@@ -223,7 +222,7 @@ public class ProxyMerger {
 		
 		Object entity = null;
 		if (id != null)
-			entity = entityManager.find(entityClass, (Serializable)id);
+			entity = entityManager.find(entityClass, id);
 		
 		if (entity == null) {
 			try {
@@ -261,8 +260,7 @@ public class ProxyMerger {
 		
 		if (detachedEntity instanceof PartialObjectProxy)
 			return mergeProxy(entity, (PartialObjectProxy)detachedEntity, cache);
-		else
-			return mergeObject(entity, detachedEntity, cache);
+		return mergeObject(entity, detachedEntity, cache);
 	}
 	
 	
