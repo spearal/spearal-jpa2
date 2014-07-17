@@ -42,12 +42,22 @@ dependencies {
     compile "org.spearal:spearal-java:${spearalVersion}"
     compile 'org.javassist:javassist:3.18.2-GA'
     compile 'org.hibernate.javax.persistence:hibernate-jpa-2.1-api:1.0.0.Final'
+	compile 'javax.enterprise:cdi-api:1.2'
     
     testCompile 'junit:junit:4.11'
     testCompile 'org.hibernate:hibernate-core:4.3.5.Final'
     testCompile 'org.hibernate:hibernate-entitymanager:4.3.5.Final'
     
     testRuntime 'com.h2database:h2:1.4.179'
+}
+
+task sourcesJar(type: Jar, dependsOn: 'classes') {
+	classifier = 'sources'
+	from sourceSets.main.allSource
+}
+
+artifacts {
+	archives sourcesJar
 }
 
 task wrapper(type: Wrapper) {
