@@ -17,7 +17,8 @@
  */
 package org.spearal.jpa2.descriptor;
 
-import javax.persistence.Entity;
+import java.util.Set;
+
 import javax.persistence.Persistence;
 import javax.persistence.PersistenceUtil;
 
@@ -29,11 +30,24 @@ import org.spearal.impl.util.ClassDescriptionUtil;
 
 /**
  * @author Franck WOLFF
+ * @author William DRAI
  */
 public class EntityDescriptorFactory implements EncoderBeanDescriptorFactory {
 	
+	private final Set<Class<?>> entityClasses;
+		
+	private final PersistenceUtil persistenceUtil;
+	
+	public EntityDescriptorFactory(Set<Class<?>> entityClasses) {
+		this.entityClasses = entityClasses;
+		
+		persistenceUtil = Persistence.getPersistenceUtil();
+		if (persistenceUtil == null)
+			throw new NullPointerException("Could not get PersistenceUtil");
+	}
+	
 	public static class EntityDescriptor implements EncoderBeanDescriptor {
-
+		
 		private final String description;
 		private final Property[] properties;
 		
@@ -57,25 +71,20 @@ public class EntityDescriptorFactory implements EncoderBeanDescriptorFactory {
 			return false;
 		}
 	}
-
-	private final PersistenceUtil persistenceUtil;
-	
-	public EntityDescriptorFactory() {
-		persistenceUtil = Persistence.getPersistenceUtil();
-		if (persistenceUtil == null)
-			throw new NullPointerException("Could not get PersistenceUtil");
-	}
 	
 	@Override
 	public EncoderBeanDescriptor createDescription(SpearalEncoder encoder, Object value) {
 		Class<?> type = value.getClass();
-		if (!type.isAnnotationPresent(Entity.class))
+		if (!entityClasses.contains(type))
 			return null;
 		
 		SpearalContext context = encoder.getContext();
 		Property[] properties = encoder.getPropertyFilter().get(type);
 		boolean cloned = false;
 		for (int i = 0; i < properties.length; i++) {
+			if (properties[i] == null)
+				continue;
+			
 			try {
 				Object propertyValue = properties[i].get(value);
 				if (!persistenceUtil.isLoaded(propertyValue)) {
@@ -88,8 +97,7 @@ public class EntityDescriptorFactory implements EncoderBeanDescriptorFactory {
 			}
 			catch (Exception e) {
 				throw new RuntimeException("Could not get property value for: " + properties[i], e);
-			}
-			
+			}			
 		}
 		
 		String description = ClassDescriptionUtil.createAliasedDescription(context, type, properties);
