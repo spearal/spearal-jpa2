@@ -17,50 +17,39 @@
  */
 package org.spearal.jpa2;
 
-import java.util.List;
 import java.util.Map;
 
 import javax.persistence.EntityManagerFactory;
 import javax.persistence.spi.PersistenceProvider;
-import javax.persistence.spi.PersistenceProviderResolverHolder;
 import javax.persistence.spi.PersistenceUnitInfo;
 import javax.persistence.spi.ProviderUtil;
+
+import org.spearal.SpearalFactory;
 
 /**
  * @author William DRAI
  */
 @SuppressWarnings("rawtypes")
-public class SpearalPersistenceProvider implements PersistenceProvider {
-
+public class PersistenceProviderWrapper implements PersistenceProvider {
+	
 	private final PersistenceProvider persistenceProvider;
+	private final SpearalFactory factory;
 	
-	private static final List<PersistenceProvider> persistenceProviders = PersistenceProviderResolverHolder.getPersistenceProviderResolver().getPersistenceProviders();
-
-	
-	public SpearalPersistenceProvider() {
-		PersistenceProvider persistenceProvider = null;
-		for (PersistenceProvider pp : persistenceProviders) {
-			if (pp.getClass().equals(getClass()))
-				continue;
-			persistenceProvider = pp;
-			break;
-		}
-		if (persistenceProvider == null)
-			throw new RuntimeException("No persistence provider found");
-		
-		this.persistenceProvider = persistenceProvider;
+	public PersistenceProviderWrapper(PersistenceProvider wrappedPersistenceProvider, SpearalFactory factory) {
+		this.persistenceProvider = wrappedPersistenceProvider;
+		this.factory = factory;
 	}
-
+	
 	@Override
 	public EntityManagerFactory createContainerEntityManagerFactory(PersistenceUnitInfo puInfo, Map params) {
 		EntityManagerFactory entityManagerFactory = persistenceProvider.createContainerEntityManagerFactory(puInfo, params);
-		return new EntityManagerFactoryWrapper(entityManagerFactory);
+		return new EntityManagerFactoryWrapper(entityManagerFactory, factory);
 	}
 	
 	@Override
 	public EntityManagerFactory createEntityManagerFactory(String puName, Map params) {
 		EntityManagerFactory entityManagerFactory = persistenceProvider.createEntityManagerFactory(puName, params);
-		return new EntityManagerFactoryWrapper(entityManagerFactory);
+		return new EntityManagerFactoryWrapper(entityManagerFactory, factory);
 	}
 
 	@Override

@@ -29,6 +29,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.spearal.DefaultSpearalFactory;
 import org.spearal.SpearalDecoder;
 import org.spearal.SpearalEncoder;
 import org.spearal.SpearalFactory;
@@ -56,8 +57,8 @@ public class TestMergePartial extends AbstractHibernate4TestUnit {
 	
 	@Test
 	public void testIsProxy() throws IOException {
-		SpearalFactory clientFactory = new SpearalFactory(false);
-		SpearalFactory serverFactory = new SpearalFactory();
+		SpearalFactory clientFactory = new DefaultSpearalFactory(false);
+		SpearalFactory serverFactory = new DefaultSpearalFactory();
 		
 		Person serverPerson1 = new Person("Bla", "Bla");
 		
@@ -93,8 +94,8 @@ public class TestMergePartial extends AbstractHibernate4TestUnit {
 		Person clientPerson = new Person("Bruce", "Willis");
 		
 		// Do not load any services here (pseudo-client application).
-		SpearalFactory clientFactory = new SpearalFactory(false);
-		SpearalFactory serverFactory = new SpearalFactory();
+		SpearalFactory clientFactory = new DefaultSpearalFactory(false);
+		SpearalFactory serverFactory = new DefaultSpearalFactory();
 		
 		Person serverPerson = clientEncodeServerDecodeMerge(clientFactory, serverFactory, clientPerson, Person.class, "id", "version", "firstName");		
 		

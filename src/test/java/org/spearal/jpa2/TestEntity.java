@@ -29,6 +29,7 @@ import org.junit.After;
 import org.junit.Assert;
 import org.junit.Before;
 import org.junit.Test;
+import org.spearal.DefaultSpearalFactory;
 import org.spearal.SpearalDecoder;
 import org.spearal.SpearalEncoder;
 import org.spearal.SpearalFactory;
@@ -104,7 +105,7 @@ public class TestEntity extends AbstractHibernate4TestUnit {
 		catch (LazyInitializationException e) {
 		}
 		
-		SpearalFactory factory = new SpearalFactory();
+		SpearalFactory factory = new DefaultSpearalFactory();
 		// Unnecessary, loaded as a service:
 		// factory.getContext().configure(new EntityDescriptorFactory());
 		ByteArrayOutputStream out = new ByteArrayOutputStream();
@@ -119,7 +120,7 @@ public class TestEntity extends AbstractHibernate4TestUnit {
 		byte[] bytes = out.toByteArray();
 		
 		// Do not load any services here (pseudo-client application).
-		factory = new SpearalFactory(false);
+		factory = new DefaultSpearalFactory(false);
 		SpearalDecoder decoder = factory.newDecoder(new ByteArrayInputStream(bytes));
 		try {
 			decoder.printAny(factory.newPrinter(System.out));
