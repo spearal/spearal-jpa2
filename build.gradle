@@ -51,6 +51,15 @@ dependencies {
     testRuntime 'com.h2database:h2:1.4.179'
 }
 
+install {
+	repositories {
+		mavenInstaller {
+			// Generated dependencies are not suitable for maven pom, remove everything for now
+			pom.whenConfigured { pom -> pom.dependencies.clear() }
+		}
+	}
+}
+
 task sourcesJar(type: Jar, dependsOn: 'classes') {
 	classifier = 'sources'
 	from sourceSets.main.allSource
