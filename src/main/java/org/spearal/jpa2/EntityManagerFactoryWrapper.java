@@ -17,11 +17,7 @@
  */
 package org.spearal.jpa2;
 
-import java.util.ArrayList;
-import java.util.HashSet;
-import java.util.List;
 import java.util.Map;
-import java.util.Set;
 
 import javax.persistence.Cache;
 import javax.persistence.EntityGraph;
@@ -31,13 +27,7 @@ import javax.persistence.PersistenceUnitUtil;
 import javax.persistence.Query;
 import javax.persistence.SynchronizationType;
 import javax.persistence.criteria.CriteriaBuilder;
-import javax.persistence.metamodel.ManagedType;
 import javax.persistence.metamodel.Metamodel;
-import javax.persistence.metamodel.SingularAttribute;
-
-import org.spearal.SpearalFactory;
-import org.spearal.jpa2.descriptor.EntityDescriptorFactory;
-import org.spearal.impl.property.SimpleUnfilterablePropertiesProvider;
 
 /**
  * @author William DRAI
@@ -46,39 +36,15 @@ import org.spearal.impl.property.SimpleUnfilterablePropertiesProvider;
 public class EntityManagerFactoryWrapper implements EntityManagerFactory {
 
 	private final EntityManagerFactory entityManagerFactory;
-
-	public EntityManagerFactoryWrapper(EntityManagerFactory entityManagerFactory, SpearalFactory spearalFactory) {
+	
+	public EntityManagerFactoryWrapper(EntityManagerFactory entityManagerFactory) {
 		this.entityManagerFactory = entityManagerFactory;
-		initSpearalFactory(spearalFactory);
 	}
 	
-	private void initSpearalFactory(SpearalFactory spearalFactory) {
-		Set<Class<?>> entityClasses = new HashSet<Class<?>>();
-		
-		for (ManagedType<?> managedType : getMetamodel().getManagedTypes()) {
-			List<String> unfilterablePropertiesList = new ArrayList<String>();
-			for (SingularAttribute<?, ?> attribute : managedType.getSingularAttributes()) {
-				if (attribute.isId())
-					unfilterablePropertiesList.add(attribute.getName());
-				if (attribute.isVersion())
-					unfilterablePropertiesList.add(attribute.getName());
-			}
-			
-			Class<?> entityClass = managedType.getJavaType();
-			
-			String[] unfilterableProperties = unfilterablePropertiesList.toArray(new String[unfilterablePropertiesList.size()]);
-			spearalFactory.getContext().configure(new SimpleUnfilterablePropertiesProvider(entityClass, unfilterableProperties));
-			
-			entityClasses.add(entityClass);
-		}
-		
-		spearalFactory.getContext().configure(new EntityDescriptorFactory(entityClasses));
-	}	
-
 	public EntityManagerFactory getWrappedEntityManagerFactory() {
 		return entityManagerFactory;
 	}
-
+	
 	public EntityManager createEntityManager() {
 		EntityManager entityManager = entityManagerFactory.createEntityManager();
 		return new EntityManagerWrapper(entityManager);

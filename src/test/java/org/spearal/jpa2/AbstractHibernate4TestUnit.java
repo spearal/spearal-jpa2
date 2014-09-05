@@ -24,7 +24,6 @@ import javax.persistence.Persistence;
 
 import org.junit.After;
 import org.junit.Before;
-import org.spearal.DefaultSpearalFactory;
 
 /**
  * @author Franck WOLFF
@@ -53,7 +52,7 @@ public abstract class AbstractHibernate4TestUnit {
 		props.put("javax.persistence.jdbc.password", "");
 		entityManagerFactory = Persistence.createEntityManagerFactory(persistenceUnitName, props);
 		if (wrapped)
-			entityManagerFactory = new EntityManagerFactoryWrapper(entityManagerFactory, new DefaultSpearalFactory());
+			entityManagerFactory = new EntityManagerFactoryWrapper(entityManagerFactory);
 	}
 
 	@After
