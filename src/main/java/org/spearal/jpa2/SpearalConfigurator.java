@@ -35,7 +35,7 @@ import org.spearal.jpa2.descriptor.EntityDescriptorFactory;
  */
 public class SpearalConfigurator {
 
-	public static void init(EntityManagerFactory entityManagerFactory, SpearalFactory spearalFactory) {
+	public static void init(SpearalFactory spearalFactory, EntityManagerFactory entityManagerFactory) {
 		Set<Class<?>> entityClasses = new HashSet<Class<?>>();
 		
 		for (ManagedType<?> managedType : entityManagerFactory.getMetamodel().getManagedTypes()) {
