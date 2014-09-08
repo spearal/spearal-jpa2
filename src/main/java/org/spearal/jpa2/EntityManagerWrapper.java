@@ -63,6 +63,9 @@ public class EntityManagerWrapper implements EntityManager {
 	}
 
 	public void persist(Object entity) {
+		if (proxyMerger.isProxy(entity))
+			proxyMerger.persist(entity);
+		
 		entityManager.persist(entity);
 	}
 

@@ -31,7 +31,9 @@ import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.ProcessProducer;
 import javax.enterprise.inject.spi.Producer;
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 
+import org.spearal.jpa2.EntityManagerFactoryWrapper;
 import org.spearal.jpa2.EntityManagerWrapper;
 
 /**
@@ -43,6 +45,11 @@ public class SpearalExtension implements Extension {
 	public void wrapEntityManager(@Observes ProcessProducer<?, EntityManager> event) {
 		event.setProducer(new EntityManagerProducerWrapper(event.getProducer()));
 	}
+	
+	public void wrapEntityManagerFactory(@Observes ProcessProducer<?, EntityManagerFactory> event) {
+		event.setProducer(new EntityManagerFactoryProducerWrapper(event.getProducer()));
+	}
+	
 	
 	public void prepareSetup(@Observes BeforeBeanDiscovery event, BeanManager beanManager) {		
 		AnnotatedType<SpearalSetup> setupType = beanManager.createAnnotatedType(SpearalSetup.class);		
@@ -66,6 +73,9 @@ public class SpearalExtension implements Extension {
 		@Override
 		public EntityManager produce(CreationalContext<EntityManager> ctx) {
 			EntityManager entityManager = wrappedProducer.produce(ctx);
+			if (entityManager instanceof EntityManagerWrapper)
+				return entityManager;
+			
 			return new EntityManagerWrapper(entityManager);
 		}
 
@@ -77,6 +87,38 @@ public class SpearalExtension implements Extension {
 			wrappedProducer.dispose(entityManager);
 		}
 
+		@Override
+		public Set<InjectionPoint> getInjectionPoints() {
+			return wrappedProducer.getInjectionPoints();
+		}
+		
+	}
+	
+	private static final class EntityManagerFactoryProducerWrapper implements Producer<EntityManagerFactory> {
+		
+		private final Producer<EntityManagerFactory> wrappedProducer;
+		
+		public EntityManagerFactoryProducerWrapper(Producer<EntityManagerFactory> wrappedProducer) {
+			this.wrappedProducer = wrappedProducer;
+		}
+		
+		@Override
+		public EntityManagerFactory produce(CreationalContext<EntityManagerFactory> ctx) {
+			EntityManagerFactory entityManagerFactory = wrappedProducer.produce(ctx);
+			if (entityManagerFactory instanceof EntityManagerFactoryWrapper)
+				return entityManagerFactory;
+			
+			return new EntityManagerFactoryWrapper(entityManagerFactory);
+		}
+
+		@Override
+		public void dispose(EntityManagerFactory entityManagerFactory) {
+			if (entityManagerFactory instanceof EntityManagerFactoryWrapper)
+				entityManagerFactory = ((EntityManagerFactoryWrapper)entityManagerFactory).getWrappedEntityManagerFactory();
+			
+			wrappedProducer.dispose(entityManagerFactory);
+		}
+		
 		@Override
 		public Set<InjectionPoint> getInjectionPoints() {
 			return wrappedProducer.getInjectionPoints();
