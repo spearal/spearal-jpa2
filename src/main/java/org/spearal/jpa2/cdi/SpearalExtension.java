@@ -21,6 +21,11 @@ import java.util.Set;
 
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.event.Observes;
+import javax.enterprise.inject.spi.AfterDeploymentValidation;
+import javax.enterprise.inject.spi.AnnotatedType;
+import javax.enterprise.inject.spi.Bean;
+import javax.enterprise.inject.spi.BeanManager;
+import javax.enterprise.inject.spi.BeforeBeanDiscovery;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.ProcessProducer;
@@ -38,6 +43,17 @@ public class SpearalExtension implements Extension {
 	public void wrapEntityManager(@Observes ProcessProducer<?, EntityManager> event) {
 		event.setProducer(new EntityManagerProducerWrapper(event.getProducer()));
 	}
+	
+	public void prepareSetup(@Observes BeforeBeanDiscovery event, BeanManager beanManager) {		
+		AnnotatedType<SpearalSetup> setupType = beanManager.createAnnotatedType(SpearalSetup.class);		
+		event.addAnnotatedType(setupType, SpearalSetup.class.getName());
+	}
+	
+	public void setupEntityManagerFactories(@Observes AfterDeploymentValidation event, BeanManager beanManager) {
+		Set<Bean<?>> beans = beanManager.getBeans(SpearalSetup.class);
+		for (Bean<?> bean : beans)	// Force creation of setup class at application statup
+			beanManager.getReference(bean, bean.getBeanClass(), beanManager.createCreationalContext(bean)).toString();
+    }
 	
 	private static final class EntityManagerProducerWrapper implements Producer<EntityManager> {
 		
