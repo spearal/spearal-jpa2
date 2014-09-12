@@ -41,9 +41,7 @@ public class SpearalConfigurator {
 		for (ManagedType<?> managedType : entityManagerFactory.getMetamodel().getManagedTypes()) {
 			List<String> unfilterablePropertiesList = new ArrayList<String>();
 			for (SingularAttribute<?, ?> attribute : managedType.getSingularAttributes()) {
-				if (attribute.isId())
-					unfilterablePropertiesList.add(attribute.getName());
-				if (attribute.isVersion())
+				if (attribute.isId() || attribute.isVersion())
 					unfilterablePropertiesList.add(attribute.getName());
 			}
 			
