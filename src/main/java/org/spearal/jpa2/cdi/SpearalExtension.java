@@ -22,17 +22,18 @@ import java.util.Set;
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.event.Observes;
 import javax.enterprise.inject.spi.AfterDeploymentValidation;
-import javax.enterprise.inject.spi.AnnotatedType;
 import javax.enterprise.inject.spi.Bean;
 import javax.enterprise.inject.spi.BeanManager;
-import javax.enterprise.inject.spi.BeforeBeanDiscovery;
 import javax.enterprise.inject.spi.Extension;
 import javax.enterprise.inject.spi.InjectionPoint;
 import javax.enterprise.inject.spi.ProcessProducer;
 import javax.enterprise.inject.spi.Producer;
 import javax.persistence.EntityManager;
+import javax.persistence.EntityManagerFactory;
 
+import org.spearal.SpearalFactory;
 import org.spearal.jpa2.EntityManagerWrapper;
+import org.spearal.jpa2.SpearalConfigurator;
 
 /**
  * @author Franck WOLFF
@@ -41,18 +42,21 @@ import org.spearal.jpa2.EntityManagerWrapper;
 public class SpearalExtension implements Extension {
 	
 	public void wrapEntityManager(@Observes ProcessProducer<?, EntityManager> event) {
-		event.setProducer(new EntityManagerProducerWrapper(event.getProducer()));
+		if (event.getAnnotatedMember().isAnnotationPresent(SpearalEnabled.class))
+			event.setProducer(new EntityManagerProducerWrapper(event.getProducer()));
 	}
 	
-	public void prepareSetup(@Observes BeforeBeanDiscovery event, BeanManager beanManager) {		
-		AnnotatedType<SpearalSetup> setupType = beanManager.createAnnotatedType(SpearalSetup.class);		
-		event.addAnnotatedType(setupType, SpearalSetup.class.getName());
+	public void wrapEntityManagerFactory(@Observes ProcessProducer<?, EntityManagerFactory> event, BeanManager beanManager) {
+		if (event.getAnnotatedMember().isAnnotationPresent(SpearalEnabled.class))
+			event.setProducer(new EntityManagerFactoryProducerWrapper(event.getProducer(), beanManager));
 	}
 	
 	public void setupEntityManagerFactories(@Observes AfterDeploymentValidation event, BeanManager beanManager) {
-		Set<Bean<?>> beans = beanManager.getBeans(SpearalSetup.class);
-		for (Bean<?> bean : beans)	// Force creation of setup class at application statup
-			beanManager.getReference(bean, bean.getBeanClass(), beanManager.createCreationalContext(bean)).toString();
+		for (Bean<?> bean : beanManager.getBeans(SpearalFactory.class))
+			beanManager.getReference(bean, SpearalFactory.class, beanManager.createCreationalContext(bean)).toString();
+		
+		for (Bean<?> bean : beanManager.getBeans(EntityManagerFactory.class))
+			beanManager.getReference(bean, EntityManagerFactory.class, beanManager.createCreationalContext(bean)).toString();
     }
 	
 	private static final class EntityManagerProducerWrapper implements Producer<EntityManager> {
@@ -81,7 +85,39 @@ public class SpearalExtension implements Extension {
 		public Set<InjectionPoint> getInjectionPoints() {
 			return wrappedProducer.getInjectionPoints();
 		}
-		
 	}
 	
+	private static final class EntityManagerFactoryProducerWrapper implements Producer<EntityManagerFactory> {
+		
+		private final Producer<EntityManagerFactory> wrappedProducer;
+		private final BeanManager beanManager;
+		
+		public EntityManagerFactoryProducerWrapper(Producer<EntityManagerFactory> wrappedProducer, BeanManager beanManager) {
+			this.wrappedProducer = wrappedProducer;
+			this.beanManager = beanManager;
+		}
+		
+		@Override
+		public EntityManagerFactory produce(CreationalContext<EntityManagerFactory> ctx) {
+			EntityManagerFactory entityManagerFactory = wrappedProducer.produce(ctx);
+			
+			Set<Bean<?>> beans = beanManager.getBeans(SpearalFactory.class);
+			for (Bean<?> bean : beans) {
+				SpearalFactory spearalFactory = (SpearalFactory)beanManager.getReference(bean, SpearalFactory.class, beanManager.createCreationalContext(bean));
+				SpearalConfigurator.init(spearalFactory, entityManagerFactory);
+			}
+			
+			return entityManagerFactory;
+		}
+
+		@Override
+		public void dispose(EntityManagerFactory entityManagerFactory) {
+			wrappedProducer.dispose(entityManagerFactory);
+		}
+
+		@Override
+		public Set<InjectionPoint> getInjectionPoints() {
+			return wrappedProducer.getInjectionPoints();
+		}
+	}
 }
