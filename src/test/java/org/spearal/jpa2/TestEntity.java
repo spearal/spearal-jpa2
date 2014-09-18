@@ -34,7 +34,6 @@ import org.spearal.SpearalDecoder;
 import org.spearal.SpearalEncoder;
 import org.spearal.SpearalFactory;
 import org.spearal.configuration.PartialObjectFactory.UndefinedPropertyException;
-import org.spearal.jpa2.descriptor.EntityDescriptorFactory;
 import org.spearal.jpa2.model.Person;
 
 /**
