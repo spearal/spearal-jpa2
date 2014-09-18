@@ -38,6 +38,7 @@ import java.util.logging.Level;
 import java.util.logging.Logger;
 
 import javax.persistence.EntityManager;
+import javax.persistence.PersistenceUnitUtil;
 import javax.persistence.metamodel.Attribute;
 import javax.persistence.metamodel.IdentifiableType;
 import javax.persistence.metamodel.ManagedType;
@@ -54,9 +55,11 @@ public class ProxyMerger {
 	private final Logger log = Logger.getLogger(ProxyMerger.class.getName());
 	
 	private final EntityManager entityManager;
+	private final PersistenceUnitUtil persistenceUtil;
 	
 	public ProxyMerger(EntityManager entityManager) {
 		this.entityManager = entityManager;
+		this.persistenceUtil = entityManager.getEntityManagerFactory().getPersistenceUnitUtil();
 	}
 	
 	public boolean isProxy(Object entity) {
@@ -68,6 +71,9 @@ public class ProxyMerger {
 		if (entity == null)
 			return false;
 		if (entity instanceof String || entity instanceof Number || entity instanceof Date || entity instanceof Type)
+			return false;
+		
+		if (!persistenceUtil.isLoaded(entity))	// Ignore lazy properties
 			return false;
 		
 		if (entity instanceof PartialObjectProxy)
@@ -93,43 +99,14 @@ public class ProxyMerger {
 		}
 		
 		for (PropertyDescriptor propertyDescriptor : propertyDescriptors) {
-			Object value = null;
-			boolean fieldAccess = false;
-			boolean readable = true;
-			
-			try {
-				Attribute<?, ?> attribute = managedType.getAttribute(propertyDescriptor.getName());
-				if (attribute.getJavaMember() instanceof Field) {
-					try {
-						((Field)attribute.getJavaMember()).setAccessible(true);
-						value = ((Field)attribute.getJavaMember()).get(entity);
-						fieldAccess = true;
-					} 
-					catch (IllegalAccessException iace) {
-						throw new RuntimeException("Could not read field " + attribute.getName() + " of class " + entity.getClass(), iace);
-					}
-				}
-			}
-			catch (IllegalArgumentException iae) {
-				// No JPA attribute
-			}
-			if (!fieldAccess) {
-				if (propertyDescriptor.getReadMethod() != null) {
-					try {
-						value = propertyDescriptor.getReadMethod().invoke(entity);
-					}
-					catch (IllegalAccessException iace) {
-						throw new RuntimeException("Could not read property " + propertyDescriptor.getName() + " of class " + entity.getClass(), iace);
-					}
-					catch (InvocationTargetException ite) {
-						throw new RuntimeException("Could not read property " + propertyDescriptor.getName() + " of class " + entity.getClass(), ite);
-					}
-				}
-				else
-					readable = false;
-			}
-			if (!readable)
+			if (!persistenceUtil.isLoaded(entity, propertyDescriptor.getName()))	// Ignore lazy properties
 				continue;
+			
+			PropertyValue propertyValue = getPropertyValue(managedType, propertyDescriptor, entity);
+			if (!propertyValue.readable)
+				continue;
+			
+			Object value = propertyValue.value;
 			
 			if (value instanceof Collection<?>) {
 				for (Object element : ((Collection<?>)value)) {
@@ -148,7 +125,7 @@ public class ProxyMerger {
 			else if (isProxy(value, cache))
 				return true;
 		}
-			
+		
 		return false;
 	}
 	
@@ -260,6 +237,7 @@ public class ProxyMerger {
 		
 		if (detachedEntity instanceof PartialObjectProxy)
 			return mergeProxy(entity, (PartialObjectProxy)detachedEntity, cache);
+		
 		return mergeObject(entity, detachedEntity, cache);
 	}
 	
@@ -273,6 +251,7 @@ public class ProxyMerger {
 		catch (IntrospectionException ie) {
 			throw new RuntimeException("Could not introspect class " + entity.getClass(), ie);
 		}
+		Class<?> entityClass = detachedProxy.getClass().getSuperclass();
 		
 		for (Property property : detachedProxy.$getDefinedProperties()) {
 			String propertyName = property.getName();
@@ -297,7 +276,7 @@ public class ProxyMerger {
 			
 			Attribute<?, ?> attribute = null;
 			try {
-				attribute = entityManager.getMetamodel().managedType(entity.getClass()).getAttribute(propertyName);
+				attribute = entityManager.getMetamodel().managedType(entityClass).getAttribute(propertyName);
 			}
 			catch (IllegalArgumentException iae) {
 				// Not a JPA attribute
@@ -311,52 +290,36 @@ public class ProxyMerger {
 			// 		value = convert(value, propertyDescriptor.getWriteMethod().getGenericParameterTypes()[0]);
 			// }
 			
-			try {
-				// Persistent attributes
-				if (attribute.getJavaMember() instanceof Field) {
-					((Field)attribute.getJavaMember()).setAccessible(true);
-					try {
-						((Field)attribute.getJavaMember()).set(entity, value);
-					} 
-					catch (IllegalAccessException iace) {
-						throw new RuntimeException("Could not write field " + attribute.getName(), iace);
-					}
+			// Persistent attributes
+			if (propertyDescriptor != null && propertyDescriptor.getWriteMethod() != null) {
+				// Use setter
+				try {
+					propertyDescriptor.getWriteMethod().invoke(entity, value);
+				} 
+				catch (IllegalAccessException iace) {
+					throw new RuntimeException("Could not write property " + attribute.getName(), iace);
 				}
-				else if (attribute.getJavaMember() instanceof Method && propertyDescriptor.getWriteMethod() != null) {
-					// Use setter
-					try {
-						propertyDescriptor.getWriteMethod().invoke(entity, value);
-					} 
-					catch (IllegalAccessException iace) {
-						throw new RuntimeException("Could not write property " + attribute.getName(), iace);
-					}
-					catch (InvocationTargetException ite) {
-						throw new RuntimeException("Could not write property " + attribute.getName(), ite);
-					}
+				catch (InvocationTargetException ite) {
+					throw new RuntimeException("Could not write property " + attribute.getName(), ite);
 				}
-				else
-					log.logp(Level.FINE, ProxyMerger.class.getName(), "merge", "Property {0} on class {1} does not exist or is not writeable", new Object[] { propertyName, entity.getClass().getName() });
 			}
-			catch (IllegalArgumentException iae) {
-				if (propertyDescriptor != null && propertyDescriptor.getWriteMethod() != null) {
-					try {
-						propertyDescriptor.getWriteMethod().invoke(entity, value);
-					} 
-					catch (IllegalAccessException iace) {
-						throw new RuntimeException("Could not write property " + propertyDescriptor.getName(), iace);
-					}
-					catch (InvocationTargetException ite) {
-						throw new RuntimeException("Could not write property " + propertyDescriptor.getName(), ite);
-					}
+			else if (attribute.getJavaMember() instanceof Field) {
+				// Fallback to field access
+				((Field)attribute.getJavaMember()).setAccessible(true);
+				try {
+					((Field)attribute.getJavaMember()).set(entity, value);
+				} 
+				catch (IllegalAccessException iace) {
+					throw new RuntimeException("Could not write field " + attribute.getName(), iace);
 				}
-				else
-					log.logp(Level.FINE, ProxyMerger.class.getName(), "merge", "Property {0} on class {1} does not exist or is not writeable", new Object[] { propertyName, entity.getClass().getName() });
 			}
+			else
+				log.logp(Level.FINE, ProxyMerger.class.getName(), "merge", "Property {0} on class {1} does not exist or is not writeable", new Object[] { propertyName, entity.getClass().getName() });
 		}
 		
 		return entity;
 	}
-
+	
     protected Object mergeObject(Object entity, Object detachedEntity, IdentityHashMap<Object, Object> cache) {
         if (detachedEntity == null)
             return null;
@@ -369,69 +332,29 @@ public class ProxyMerger {
 			throw new RuntimeException("Could not introspect class " + entity.getClass(), ie);
 		}
         
-        if (entity != null && !entityManager.getEntityManagerFactory().getPersistenceUnitUtil().isLoaded(entity)) {
+        if (entity != null && !persistenceUtil.isLoaded(entity)) {
             // cache.contains() cannot be called on un unintialized proxy because hashCode will fail !!
         	ManagedType<?> managedType = entityManager.getMetamodel().managedType(entity.getClass());
         	if (managedType instanceof IdentifiableType<?>) {
 //        		Class<?> idType = ((IdentifiableType<?>)managedType).getIdType().getJavaType();
 //        		SingularAttribute<?, ?> idAttribute = ((IdentifiableType<?>)managedType).getId(idType);
         		
-        		Object id = entityManager.getEntityManagerFactory().getPersistenceUnitUtil().getIdentifier(detachedEntity);
+        		Object id = persistenceUtil.getIdentifier(detachedEntity);
         		return entityManager.find(entity.getClass(), id);
         	}
         }
         
         // If the detached entity has an id, we should get the managed instance
     	ManagedType<?> managedType = entityManager.getMetamodel().managedType(entity.getClass());
-    	Object id = entityManager.getEntityManagerFactory().getPersistenceUnitUtil().getIdentifier(detachedEntity);
     	
-    	if (id != null && managedType instanceof IdentifiableType<?>) {
-//    		Class<?> idType = ((IdentifiableType<?>)managedType).getIdType().getJavaType();
-//    		SingularAttribute<?, ?> idAttribute = ((IdentifiableType<?>)managedType).getId(idType);
-    		
-    		return entityManager.find(entity.getClass(), id);
-    	}
-        
         // If there is no id, traverse the object graph to merge associated objects
     	for (PropertyDescriptor propertyDescriptor : propertyDescriptors) {
-			Object value = null;
-			boolean fieldAccess = false;
-			boolean readable = true;
-			Attribute<?, ?> attribute = null;
-			
-			try {
-				attribute = managedType.getAttribute(propertyDescriptor.getName());
-				if (attribute.getJavaMember() instanceof Field) {
-					try {
-						((Field)attribute.getJavaMember()).setAccessible(true);
-						value = ((Field)attribute.getJavaMember()).get(entity);
-						fieldAccess = true;
-					} 
-					catch (IllegalAccessException iace) {
-						throw new RuntimeException("Could not read field " + attribute.getName() + " of class " + entity.getClass(), iace);
-					}
-				}
-			}
-			catch (IllegalArgumentException iae) {
-				// No JPA attribute
-			}
-			if (!fieldAccess) {
-				if (propertyDescriptor.getReadMethod() != null) {
-					try {
-						value = propertyDescriptor.getReadMethod().invoke(entity);
-					}
-					catch (IllegalAccessException iace) {
-						throw new RuntimeException("Could not read property " + propertyDescriptor.getName() + " of class " + entity.getClass(), iace);
-					}
-					catch (InvocationTargetException ite) {
-						throw new RuntimeException("Could not read property " + propertyDescriptor.getName() + " of class " + entity.getClass(), ite);
-					}
-				}
-				else
-					readable = false;
-			}
-			if (!readable)
+    		
+    		PropertyValue propertyValue = getPropertyValue(managedType, propertyDescriptor, detachedEntity);
+			if (!propertyValue.readable)
 				continue;
+			
+			Object value = propertyValue.value;
 			
 			if (value instanceof List<?>) {
                 @SuppressWarnings("unchecked")
@@ -489,20 +412,28 @@ public class ProxyMerger {
             else {
             	Object newValue = value;
             	
-            	try {
-            		entityManager.getMetamodel().managedType(value.getClass());
-            		newValue = merge(value, cache);
+            	boolean merge = false;        	
+        		if (propertyValue.attribute == null && value != null) {
+                	try {
+                		entityManager.getMetamodel().managedType(value.getClass());
+                		merge = true;
+                	}
+                	catch (IllegalArgumentException iae) {
+                		// Not an entity
+                	}
             	}
-            	catch (IllegalArgumentException iae) {
-            		// Not an entity
-            	}
+        		if (propertyValue.attribute != null && (propertyValue.attribute.isAssociation() || propertyValue.attribute.isCollection()))
+        			merge = true;
         		
-        		if (fieldAccess) {
+            	if (merge)            		
+            		newValue = merge(value, cache);
+        		
+        		if (propertyValue.fieldAccess) {
         			try {
-						((Field)attribute.getJavaMember()).set(entity, newValue);
+						((Field)propertyValue.attribute.getJavaMember()).set(entity, newValue);
 					} 
         			catch (IllegalAccessException iace) {
-						throw new RuntimeException("Could not write field " + attribute.getName() + " of class " + entity.getClass(), iace);
+						throw new RuntimeException("Could not write field " + propertyValue.attribute.getName() + " of class " + entity.getClass(), iace);
 					}
         		}
         		else {
@@ -511,10 +442,10 @@ public class ProxyMerger {
     						propertyDescriptor.getWriteMethod().invoke(entity, newValue);
     					}
     					catch (IllegalAccessException iace) {
-    						throw new RuntimeException("Could not read property " + propertyDescriptor.getName() + " of class " + entity.getClass(), iace);
+    						throw new RuntimeException("Could not write property " + propertyDescriptor.getName() + " of class " + entity.getClass(), iace);
     					}
     					catch (InvocationTargetException ite) {
-    						throw new RuntimeException("Could not read property " + propertyDescriptor.getName() + " of class " + entity.getClass(), ite);
+    						throw new RuntimeException("Could not write property " + propertyDescriptor.getName() + " of class " + entity.getClass(), ite);
     					}
     				}
         		}
@@ -537,6 +468,50 @@ public class ProxyMerger {
 				return attribute;
 		}
 		return null;
+	}
+	
+	private static class PropertyValue {
+		public Attribute<?, ?> attribute = null;
+		public boolean fieldAccess = false;
+		public boolean readable = true; 
+		public Object value = null;
+	}
+	
+	public static PropertyValue getPropertyValue(ManagedType<?> managedType, PropertyDescriptor propertyDescriptor, Object entity) {
+		PropertyValue propertyValue = new PropertyValue();
+		try {
+			Attribute<?, ?> attribute = managedType.getAttribute(propertyDescriptor.getName());
+			if (attribute.getJavaMember() instanceof Field) {
+				try {
+					((Field)attribute.getJavaMember()).setAccessible(true);
+					propertyValue.value = ((Field)attribute.getJavaMember()).get(entity);
+					propertyValue.fieldAccess = true;
+				} 
+				catch (IllegalAccessException iace) {
+					throw new RuntimeException("Could not read field " + attribute.getName() + " of class " + entity.getClass(), iace);
+				}
+			}
+			propertyValue.attribute = attribute;
+		}
+		catch (IllegalArgumentException iae) {
+			// No JPA attribute
+		}
+		if (!propertyValue.fieldAccess) {
+			if (propertyDescriptor.getReadMethod() != null) {
+				try {
+					propertyValue.value = propertyDescriptor.getReadMethod().invoke(entity);
+				}
+				catch (IllegalAccessException iace) {
+					throw new RuntimeException("Could not read property " + propertyDescriptor.getName() + " of class " + entity.getClass(), iace);
+				}
+				catch (InvocationTargetException ite) {
+					throw new RuntimeException("Could not read property " + propertyDescriptor.getName() + " of class " + entity.getClass(), ite);
+				}
+			}
+			else
+				propertyValue.readable = false;
+		}
+		return propertyValue;
 	}
 
 }

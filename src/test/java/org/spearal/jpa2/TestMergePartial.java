@@ -20,7 +20,6 @@ package org.spearal.jpa2;
 import java.io.ByteArrayInputStream;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
-import java.util.HashSet;
 
 import javax.persistence.EntityManager;
 import javax.persistence.EntityTransaction;
@@ -34,7 +33,12 @@ import org.spearal.SpearalDecoder;
 import org.spearal.SpearalEncoder;
 import org.spearal.SpearalFactory;
 import org.spearal.configuration.PartialObjectFactory.PartialObjectProxy;
+import org.spearal.configuration.PropertyFactory.Property;
+import org.spearal.impl.partial.JavassistPartialObjectFactory;
+import org.spearal.impl.property.AnyProperty;
+import org.spearal.impl.property.StringProperty;
 import org.spearal.jpa2.impl.ProxyMerger;
+import org.spearal.jpa2.model.AbstractEntity;
 import org.spearal.jpa2.model.Contact;
 import org.spearal.jpa2.model.Person;
 
@@ -67,7 +71,6 @@ public class TestMergePartial extends AbstractHibernate4TestUnit {
 		Assert.assertFalse("Simple object", proxyMerger.isProxy(serverPerson1));
 		
 		Contact serverContact1 = new Contact(serverPerson1, "bla", "06");
-		serverPerson1.setContacts(new HashSet<Contact>());
 		serverPerson1.getContacts().add(serverContact1);
 		Assert.assertFalse("Graph object", proxyMerger.isProxy(serverPerson1));
 
@@ -76,7 +79,6 @@ public class TestMergePartial extends AbstractHibernate4TestUnit {
 		Assert.assertTrue("Proxy object", proxyMerger.isProxy(serverPerson2));
 		
 		Person clientPerson3 = new Person("Bruce", "Willis");
-		clientPerson3.setContacts(new HashSet<Contact>());
 		Contact clientContact3 = new Contact(clientPerson3, "blo", "06");
 		clientPerson3.getContacts().add(clientContact3);
 		Person serverPerson3 = clientEncodeServerDecode(clientFactory, serverFactory, clientPerson3, Contact.class, "id", "version", "person", "mobile");
@@ -84,6 +86,40 @@ public class TestMergePartial extends AbstractHibernate4TestUnit {
 		Assert.assertTrue("Proxy graph", proxyMerger.isProxy(serverPerson3));
 		
 		entityManager.close();
+	}
+	
+	@Test
+	public void testIsProxy2() throws Exception {
+		SpearalFactory serverFactory = new DefaultSpearalFactory();
+		
+		Person serverPerson2 = new Person("Blo", "Blo");		
+		serverPerson2 = mergeEntity(serverPerson2);
+		
+		Person serverPerson1 = new Person("Bla", "Bla");
+		serverPerson1.setBestFriend(serverPerson2);
+		serverPerson1 = mergeEntity(serverPerson1);
+		
+		serverPerson1 = findEntity(Person.class, serverPerson1.getId());
+		EntityManager entityManager = entityManagerFactory.createEntityManager();
+		ProxyMerger proxyMerger = new ProxyMerger(entityManager);
+		Assert.assertFalse("Simple object", proxyMerger.isProxy(serverPerson1));		
+		entityManager.close();
+		
+		Person incomingPerson1 = new Person("Bla", "Bla");
+		incomingPerson1.setId(serverPerson1.getId());
+		
+		Property[] properties = new Property[2];
+		properties[0] = new AnyProperty("id", AbstractEntity.class.getDeclaredField("id"), Person.class.getMethod("getId"), Person.class.getMethod("setId", Long.class));
+		properties[1] = new StringProperty("lastName", Person.class.getDeclaredField("lastName"), Person.class.getMethod("getLastName"), Person.class.getMethod("setLastName", String.class));
+		Person incomingPerson2 = (Person)new JavassistPartialObjectFactory().instantiatePartial(serverFactory.getContext(), Person.class, properties);
+		incomingPerson2.setId(serverPerson2.getId());
+		incomingPerson2.setLastName("Toto");
+		incomingPerson1.setBestFriend(incomingPerson2);
+		
+		mergeEntity(incomingPerson1);
+		
+		serverPerson1 = findEntity(Person.class, serverPerson1.getId());
+		Assert.assertEquals("Value updated", "Toto", serverPerson1.getBestFriend().getLastName());
 	}
 	
 	

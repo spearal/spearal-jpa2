@@ -17,6 +17,7 @@
  */
 package org.spearal.jpa2.model;
 
+import java.util.HashSet;
 import java.util.Set;
 
 import javax.persistence.Basic;
@@ -46,7 +47,7 @@ public class Person extends AbstractEntity {
 	private Person bestFriend;
 	
 	@OneToMany(fetch=FetchType.LAZY, mappedBy="person", orphanRemoval=true, cascade=CascadeType.ALL)
-	private Set<Contact> contacts;
+	private Set<Contact> contacts = new HashSet<Contact>();
 	
 	public Person() {
 	}
