@@ -28,6 +28,8 @@ import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+import java.util.logging.Level;
+import java.util.logging.Logger;
 
 import javax.enterprise.context.spi.CreationalContext;
 import javax.enterprise.event.Observes;
@@ -61,6 +63,8 @@ import org.spearal.jpa2.SpearalConfigurator;
  * @author William DRAI
  */
 public class SpearalExtension implements Extension {
+	
+	private final Logger log = Logger.getLogger(SpearalExtension.class.getName());
 	
 	public void wrapEntityManager(@Observes ProcessProducer<?, EntityManager> event) {
 		if (event.getAnnotatedMember().isAnnotationPresent(SpearalEnabled.class))
@@ -111,180 +115,27 @@ public class SpearalExtension implements Extension {
 			
 			if (!member.isAnnotationPresent(SpearalEnabled.class))
 				continue;
-			
-			final Set<Annotation> annotations = new HashSet<Annotation>(member.getAnnotations());
-			Iterator<Annotation> ia = annotations.iterator();
-			while (ia.hasNext()) {
-				Annotation a = ia.next();
-				if (a.annotationType().equals(PersistenceContext.class))
-					ia.remove();
-			}
+
 			PersistenceContext persistenceContext = member.getAnnotation(PersistenceContext.class);
-			PersistenceUnit persistenceUnit = new PersistenceUnitAnnotation(persistenceContext.name(), persistenceContext.unitName());
-			
-			annotations.add(persistenceUnit);
-			
+
 			try {
-				final Field persistenceUnitField = PersistenceUnitProducer.class.getDeclaredField("persistenceUnit");
-				final Constructor<PersistenceUnitProducer> persistenceUnitConstructor = PersistenceUnitProducer.class.getDeclaredConstructor();
+				final Set<Annotation> annotations = new HashSet<Annotation>(member.getAnnotations());
+				Iterator<Annotation> ia = annotations.iterator();
+				while (ia.hasNext()) {
+					Annotation a = ia.next();
+					if (a.annotationType().equals(PersistenceContext.class))
+						ia.remove();
+				}
+				PersistenceUnit persistenceUnit = new PersistenceUnitAnnotation(persistenceContext.name(), persistenceContext.unitName());
 				
-				final Set<AnnotatedField<? super PersistenceUnitProducer>> annotatedFields = new HashSet<AnnotatedField<? super PersistenceUnitProducer>>();
-				final Set<AnnotatedConstructor<PersistenceUnitProducer>> annotatedConstructors = new HashSet<AnnotatedConstructor<PersistenceUnitProducer>>();
+				annotations.add(persistenceUnit);
 				
-				final AnnotatedType<PersistenceUnitProducer> annotatedPU = new AnnotatedType<SpearalExtension.PersistenceUnitProducer>() {
-					@Override
-					public <T extends Annotation> T getAnnotation(Class<T> annotationType) {
-						return null;
-					}
-	
-					@Override
-					public Set<Annotation> getAnnotations() {
-						return Collections.emptySet();
-					}
-	
-					@Override
-					public Type getBaseType() {
-						return PersistenceUnitProducer.class;
-					}
-	
-					@Override
-					public Set<Type> getTypeClosure() {
-						return Collections.singleton((Type)PersistenceUnitProducer.class);
-					}
-					
-					@Override
-					public boolean isAnnotationPresent(Class<? extends Annotation> annotationType) {
-						return false;
-					}
-	
-					@Override
-					public Set<AnnotatedConstructor<PersistenceUnitProducer>> getConstructors() {
-						return annotatedConstructors;
-					}
-	
-					@Override
-					public Set<AnnotatedField<? super PersistenceUnitProducer>> getFields() {
-						return annotatedFields;
-					}
-	
-					@Override
-					public Class<PersistenceUnitProducer> getJavaClass() {
-						return PersistenceUnitProducer.class;
-					}
-	
-					@Override
-					public Set<AnnotatedMethod<? super PersistenceUnitProducer>> getMethods() {
-						return Collections.emptySet();
-					}
-				};
+				final AnnotatedType<PersistenceUnitProducer> annotatedPU = new AnnotatedPersistenceUnitProducerType(annotations);
 				
-				AnnotatedConstructor<PersistenceUnitProducer> annotatedConstructor = new AnnotatedConstructor<SpearalExtension.PersistenceUnitProducer>() {
-
-					@Override
-					public List<AnnotatedParameter<PersistenceUnitProducer>> getParameters() {
-						return Collections.emptyList();
-					}
-
-					@Override
-					public AnnotatedType<PersistenceUnitProducer> getDeclaringType() {
-						return annotatedPU;
-					}
-
-					@Override
-					public boolean isStatic() {
-						return false;
-					}
-
-					@Override
-					public <T extends Annotation> T getAnnotation(Class<T> annotationType) {
-						return null;
-					}
-
-					@Override
-					public Set<Annotation> getAnnotations() {
-						return Collections.emptySet();
-					}
-
-					@Override
-					public Type getBaseType() {
-						return PersistenceUnitProducer.class;
-					}
-
-					@Override
-					public Set<Type> getTypeClosure() {
-						return Collections.singleton((Type)PersistenceUnitProducer.class);
-					}
-
-					@Override
-					public boolean isAnnotationPresent(Class<? extends Annotation> annotationType) {
-						return false;
-					}
-
-					@Override
-					public Constructor<PersistenceUnitProducer> getJavaMember() {
-						return persistenceUnitConstructor;
-					}
-				};
-				
-				annotatedConstructors.add(annotatedConstructor);
-				
-				AnnotatedField<PersistenceUnitProducer> annotatedField = new AnnotatedField<SpearalExtension.PersistenceUnitProducer>() {
-					@Override
-					public AnnotatedType<PersistenceUnitProducer> getDeclaringType() {
-						return annotatedPU;
-					}
-					
-					@Override
-					public boolean isStatic() {
-						return false;
-					}
-					
-					@SuppressWarnings("unchecked")
-					@Override
-					public <T extends Annotation> T getAnnotation(Class<T> annotationType) {
-						for (Annotation annotation : annotations) {
-							if (annotation.annotationType().equals(annotationType))
-								return (T)annotation;
-						}
-						return null;
-					}
-	
-					@Override
-					public Set<Annotation> getAnnotations() {
-						return annotations;
-					}
-					
-					@Override
-					public boolean isAnnotationPresent(Class<? extends Annotation> annotationType) {
-						for (Annotation annotation : annotations) {
-							if (annotation.annotationType().equals(annotationType))
-								return true;
-						}
-						return false;
-					}
-					
-					@Override
-					public Field getJavaMember() {
-						return persistenceUnitField;
-					}
-	
-					@Override
-					public Type getBaseType() {
-						return EntityManagerFactory.class;
-					}
-					
-					@Override
-					public Set<Type> getTypeClosure() {
-						return Collections.singleton((Type)EntityManagerFactory.class);
-					}
-				};
-				
-				annotatedFields.add(annotatedField);
-				
-				event.addAnnotatedType(annotatedPU, "javax.persistence.PersistenceUnit." + persistenceContext.unitName());
+				event.addAnnotatedType(annotatedPU, "org.spearal.jpa2.PersistenceUnit." + persistenceContext.unitName());
 			}
 			catch (Exception e) {
-				
+				log.logp(Level.WARNING, SpearalExtension.class.getName(), "afterTypeDiscovery", "Could not setup PersistenceUnit integration {0}", new Object[] { persistenceContext.unitName() });
 			}
 		}
 	}
@@ -380,6 +231,178 @@ public class SpearalExtension implements Extension {
 		@Override
 		public Set<InjectionPoint> getInjectionPoints() {
 			return wrappedProducer.getInjectionPoints();
+		}
+	}
+	
+	
+	public static class AnnotatedPersistenceUnitProducerType implements AnnotatedType<PersistenceUnitProducer> {
+		
+		private final Set<Annotation> annotations;
+		private final Set<AnnotatedConstructor<PersistenceUnitProducer>> annotatedConstructors;
+		private final Set<AnnotatedField<? super PersistenceUnitProducer>> annotatedFields = new HashSet<AnnotatedField<? super PersistenceUnitProducer>>();
+		
+		public AnnotatedPersistenceUnitProducerType(Set<Annotation> annotations) throws Exception {
+			this.annotations = annotations;
+			this.annotatedConstructors = new HashSet<AnnotatedConstructor<PersistenceUnitProducer>>(); 
+			this.annotatedConstructors.add(new AnnotatedPersistenceUnitProducerConstructor());
+		}
+		
+		@Override
+		public <T extends Annotation> T getAnnotation(Class<T> annotationType) {
+			return null;
+		}
+
+		@Override
+		public Set<Annotation> getAnnotations() {
+			return Collections.emptySet();
+		}
+
+		@Override
+		public Type getBaseType() {
+			return PersistenceUnitProducer.class;
+		}
+
+		@Override
+		public Set<Type> getTypeClosure() {
+			return Collections.singleton((Type)PersistenceUnitProducer.class);
+		}
+		
+		@Override
+		public boolean isAnnotationPresent(Class<? extends Annotation> annotationType) {
+			return false;
+		}
+
+		@Override
+		public Set<AnnotatedConstructor<PersistenceUnitProducer>> getConstructors() {
+			return annotatedConstructors;
+		}
+
+		@Override
+		public Set<AnnotatedField<? super PersistenceUnitProducer>> getFields() {
+			return annotatedFields;
+		}
+
+		@Override
+		public Class<PersistenceUnitProducer> getJavaClass() {
+			return PersistenceUnitProducer.class;
+		}
+
+		@Override
+		public Set<AnnotatedMethod<? super PersistenceUnitProducer>> getMethods() {
+			return Collections.emptySet();
+		}
+		
+		
+		public class AnnotatedPersistenceUnitProducerConstructor implements AnnotatedConstructor<PersistenceUnitProducer> {
+			
+			private final Constructor<PersistenceUnitProducer> persistenceUnitConstructor;
+			
+			public AnnotatedPersistenceUnitProducerConstructor() throws NoSuchMethodException { 
+				persistenceUnitConstructor = PersistenceUnitProducer.class.getDeclaredConstructor();
+			}
+			
+			@Override
+			public List<AnnotatedParameter<PersistenceUnitProducer>> getParameters() {
+				return Collections.emptyList();
+			}
+
+			@Override
+			public AnnotatedType<PersistenceUnitProducer> getDeclaringType() {
+				return AnnotatedPersistenceUnitProducerType.this;
+			}
+			
+			@Override
+			public boolean isStatic() {
+				return false;
+			}
+
+			@Override
+			public <T extends Annotation> T getAnnotation(Class<T> annotationType) {
+				return null;
+			}
+
+			@Override
+			public Set<Annotation> getAnnotations() {
+				return Collections.emptySet();
+			}
+
+			@Override
+			public Type getBaseType() {
+				return PersistenceUnitProducer.class;
+			}
+
+			@Override
+			public Set<Type> getTypeClosure() {
+				return Collections.singleton((Type)PersistenceUnitProducer.class);
+			}
+
+			@Override
+			public boolean isAnnotationPresent(Class<? extends Annotation> annotationType) {
+				return false;
+			}
+
+			@Override
+			public Constructor<PersistenceUnitProducer> getJavaMember() {
+				return persistenceUnitConstructor;
+			}
+		}
+		
+		public class AnnotatedPersistenceUnitProducerField implements AnnotatedField<SpearalExtension.PersistenceUnitProducer> {
+			
+			private final Field persistenceUnitField;
+			
+			public AnnotatedPersistenceUnitProducerField() throws NoSuchFieldException {
+				persistenceUnitField = PersistenceUnitProducer.class.getDeclaredField("persistenceUnit");
+			}
+			
+			@Override
+			public AnnotatedType<PersistenceUnitProducer> getDeclaringType() {
+				return AnnotatedPersistenceUnitProducerType.this;
+			}
+			
+			@Override
+			public boolean isStatic() {
+				return false;
+			}
+			
+			@SuppressWarnings("unchecked")
+			@Override
+			public <T extends Annotation> T getAnnotation(Class<T> annotationType) {
+				for (Annotation annotation : AnnotatedPersistenceUnitProducerType.this.annotations) {
+					if (annotation.annotationType().equals(annotationType))
+						return (T)annotation;
+				}
+				return null;
+			}
+
+			@Override
+			public Set<Annotation> getAnnotations() {
+				return annotations;
+			}
+			
+			@Override
+			public boolean isAnnotationPresent(Class<? extends Annotation> annotationType) {
+				for (Annotation annotation : AnnotatedPersistenceUnitProducerType.this.annotations) {
+					if (annotation.annotationType().equals(annotationType))
+						return true;
+				}
+				return false;
+			}
+			
+			@Override
+			public Field getJavaMember() {
+				return persistenceUnitField;
+			}
+			
+			@Override
+			public Type getBaseType() {
+				return EntityManagerFactory.class;
+			}
+			
+			@Override
+			public Set<Type> getTypeClosure() {
+				return Collections.singleton((Type)EntityManagerFactory.class);
+			}
 		}
 	}
 }
