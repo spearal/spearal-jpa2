@@ -83,19 +83,21 @@ public class ProxyMerger {
 			return false;		
 		cache.put(entity, entity);
 		
+		ManagedType<?> managedType = null;
+		try {
+			managedType = entityManager.getMetamodel().managedType(entity.getClass());
+		}
+		catch (IllegalArgumentException iae) {
+			// Not an entity, cannot be a proxy
+			return false;
+		}
+		
 		PropertyDescriptor[] propertyDescriptors;
 		try {
 			propertyDescriptors = Introspector.getBeanInfo(entity.getClass(), Introspector.IGNORE_ALL_BEANINFO).getPropertyDescriptors();
 		}
 		catch (IntrospectionException ie) {
 			throw new RuntimeException("Could not introspect class " + entity.getClass(), ie);
-		}
-		ManagedType<?> managedType = null;
-		try {
-			managedType = entityManager.getMetamodel().managedType(entity.getClass());
-		}
-		catch (IllegalArgumentException iae) {
-			throw new RuntimeException(entity.getClass().getName() + " is not a managed class", iae);
 		}
 		
 		for (PropertyDescriptor propertyDescriptor : propertyDescriptors) {
