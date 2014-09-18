@@ -23,8 +23,8 @@ import javax.persistence.Persistence;
 import javax.persistence.PersistenceUtil;
 
 import org.spearal.SpearalContext;
-import org.spearal.SpearalEncoder;
-import org.spearal.configuration.EncoderBeanDescriptorFactory;
+import org.spearal.SpearalPropertyFilter;
+import org.spearal.configuration.FilteredBeanDescriptorFactory;
 import org.spearal.configuration.PropertyFactory.Property;
 import org.spearal.impl.util.ClassDescriptionUtil;
 
@@ -32,7 +32,7 @@ import org.spearal.impl.util.ClassDescriptionUtil;
  * @author Franck WOLFF
  * @author William DRAI
  */
-public class EntityDescriptorFactory implements EncoderBeanDescriptorFactory {
+public class EntityDescriptorFactory implements FilteredBeanDescriptorFactory {
 	
 	private final Set<Class<?>> entityClasses;
 		
@@ -46,7 +46,7 @@ public class EntityDescriptorFactory implements EncoderBeanDescriptorFactory {
 			throw new NullPointerException("Could not get PersistenceUtil");
 	}
 	
-	public static class EntityDescriptor implements EncoderBeanDescriptor {
+	public static class EntityDescriptor implements FilteredBeanDescriptor {
 		
 		private final String description;
 		private final Property[] properties;
@@ -71,15 +71,14 @@ public class EntityDescriptorFactory implements EncoderBeanDescriptorFactory {
 			return false;
 		}
 	}
-	
+
 	@Override
-	public EncoderBeanDescriptor createDescription(SpearalEncoder encoder, Object value) {
+	public FilteredBeanDescriptor createDescription(SpearalContext context, SpearalPropertyFilter filter, Object value) {
 		Class<?> type = value.getClass();
 		if (!entityClasses.contains(type))
 			return null;
 		
-		SpearalContext context = encoder.getContext();
-		Property[] properties = encoder.getPropertyFilter().get(type);
+		Property[] properties = filter.get(type);
 		boolean cloned = false;
 		for (int i = 0; i < properties.length; i++) {
 			if (properties[i] == null)
