@@ -23,9 +23,7 @@ import java.beans.PropertyDescriptor;
 import java.lang.reflect.Field;
 import java.lang.reflect.InvocationTargetException;
 import java.lang.reflect.Method;
-import java.lang.reflect.Type;
 import java.util.Collection;
-import java.util.Date;
 import java.util.HashMap;
 import java.util.HashSet;
 import java.util.IdentityHashMap;
@@ -68,12 +66,7 @@ public class ProxyMerger {
 	}
 	
 	public boolean isProxy(Object entity, IdentityHashMap<Object, Object> cache) {
-		if (entity == null)
-			return false;
-		if (entity instanceof String || entity instanceof Number || entity instanceof Date || entity instanceof Type)
-			return false;
-		
-		if (!persistenceUtil.isLoaded(entity))	// Ignore lazy properties
+		if (entity == null || !persistenceUtil.isLoaded(entity))	// Ignore lazy properties
 			return false;
 		
 		if (entity instanceof PartialObjectProxy)
@@ -81,16 +74,16 @@ public class ProxyMerger {
 		
 		if (cache.containsKey(entity))
 			return false;		
-		cache.put(entity, entity);
 		
 		ManagedType<?> managedType = null;
 		try {
 			managedType = entityManager.getMetamodel().managedType(entity.getClass());
 		}
 		catch (IllegalArgumentException iae) {
-			// Not an entity, cannot be a proxy
+			// Not an entity, cannot be a mergeable proxy
 			return false;
 		}
+		cache.put(entity, entity);
 		
 		PropertyDescriptor[] propertyDescriptors;
 		try {
@@ -100,12 +93,17 @@ public class ProxyMerger {
 			throw new RuntimeException("Could not introspect class " + entity.getClass(), ie);
 		}
 		
-		for (PropertyDescriptor propertyDescriptor : propertyDescriptors) {
-			if (!persistenceUtil.isLoaded(entity, propertyDescriptor.getName()))	// Ignore lazy properties
+		for (Attribute<?, ?> attribute : managedType.getAttributes()) {
+			if (!persistenceUtil.isLoaded(entity, attribute.getName()))	// Ignore lazy properties
 				continue;
 			
-			PropertyValue propertyValue = getPropertyValue(managedType, propertyDescriptor, entity);
-			if (!propertyValue.readable)
+			if (!(attribute.isAssociation() || attribute.isCollection())) // Don't recurse into simple properties
+				continue;
+			
+			PropertyDescriptor propertyDescriptor = findPropertyDescriptor(propertyDescriptors, attribute.getName());
+			
+			PropertyValue propertyValue = getPropertyValue(managedType, attribute, propertyDescriptor, entity);
+			if (!propertyValue.readable || propertyValue.attribute == null)
 				continue;
 			
 			Object value = propertyValue.value;
@@ -215,6 +213,7 @@ public class ProxyMerger {
 			}
 		}
 		
+		// TODO: Check version
 //		SingularAttribute<?, ?> versionAttribute = getVersionAttribute(entityManager.getMetamodel().managedType(entityClass));
 //		if (versionAttribute != null) {
 //			Member versionMember = versionAttribute.getJavaMember();
@@ -268,13 +267,7 @@ public class ProxyMerger {
 				throw new RuntimeException("Could not read property " + propertyName, ite);
 			}
 			
-			PropertyDescriptor propertyDescriptor = null;
-			for (PropertyDescriptor pd : propertyDescriptors) {
-				if (pd.getName().equals(propertyName)) {
-					propertyDescriptor = pd;
-					break;
-				}
-			}
+			PropertyDescriptor propertyDescriptor = findPropertyDescriptor(propertyDescriptors, propertyName);
 			
 			Attribute<?, ?> attribute = null;
 			try {
@@ -352,7 +345,7 @@ public class ProxyMerger {
         // If there is no id, traverse the object graph to merge associated objects
     	for (PropertyDescriptor propertyDescriptor : propertyDescriptors) {
     		
-    		PropertyValue propertyValue = getPropertyValue(managedType, propertyDescriptor, detachedEntity);
+    		PropertyValue propertyValue = getPropertyValue(managedType, null, propertyDescriptor, detachedEntity);
 			if (!propertyValue.readable)
 				continue;
 			
@@ -472,6 +465,16 @@ public class ProxyMerger {
 		return null;
 	}
 	
+	
+	private static PropertyDescriptor findPropertyDescriptor(PropertyDescriptor[] propertyDescriptors, String propertyName) {
+		for (PropertyDescriptor pd : propertyDescriptors) {
+			if (pd.getName().equals(propertyName)) {
+				return pd;
+			}
+		}
+		return null;
+	}
+	
 	private static class PropertyValue {
 		public Attribute<?, ?> attribute = null;
 		public boolean fieldAccess = false;
@@ -479,10 +482,13 @@ public class ProxyMerger {
 		public Object value = null;
 	}
 	
-	public static PropertyValue getPropertyValue(ManagedType<?> managedType, PropertyDescriptor propertyDescriptor, Object entity) {
+	public static PropertyValue getPropertyValue(ManagedType<?> managedType, Attribute<?, ?> attribute, PropertyDescriptor propertyDescriptor, Object entity) {
 		PropertyValue propertyValue = new PropertyValue();
+		
 		try {
-			Attribute<?, ?> attribute = managedType.getAttribute(propertyDescriptor.getName());
+			if (attribute == null)
+				attribute = managedType.getAttribute(propertyDescriptor.getName());
+			
 			if (attribute.getJavaMember() instanceof Field) {
 				try {
 					((Field)attribute.getJavaMember()).setAccessible(true);
