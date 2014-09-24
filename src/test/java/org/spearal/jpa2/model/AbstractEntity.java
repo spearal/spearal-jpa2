@@ -63,6 +63,10 @@ public abstract class AbstractEntity implements Serializable {
 		return version;
 	}
 
+	public void backdoorSetVersion(Long version) {
+		this.version = version;
+	}
+
 	@Override
 	public int hashCode() {
 		return uid.hashCode();

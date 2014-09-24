@@ -20,6 +20,9 @@
     <persistence-unit name="hibernate4-merge-pu" transaction-type="RESOURCE_LOCAL">
         <class>org.spearal.jpa2.model.Person</class>        
         <class>org.spearal.jpa2.model.Contact</class>        
+        <class>org.spearal.jpa2.model.EntityWithEmbeddedId</class>        
+        <class>org.spearal.jpa2.model.EntityWithIdClass</class>        
+        <class>org.spearal.jpa2.model.EntityWithEmbedded</class>        
         <exclude-unlisted-classes>true</exclude-unlisted-classes>
         <properties>
             <property name="hibernate.dialect" value="org.hibernate.dialect.H2Dialect"/>

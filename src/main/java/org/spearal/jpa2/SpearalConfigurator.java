@@ -26,6 +26,7 @@ import javax.persistence.EntityManagerFactory;
 import javax.persistence.metamodel.ManagedType;
 import javax.persistence.metamodel.SingularAttribute;
 
+import org.spearal.SpearalContext;
 import org.spearal.SpearalFactory;
 import org.spearal.impl.property.SimpleUnfilterablePropertiesProvider;
 import org.spearal.jpa2.descriptor.EntityDescriptorFactory;
@@ -36,23 +37,21 @@ import org.spearal.jpa2.descriptor.EntityDescriptorFactory;
 public class SpearalConfigurator {
 
 	public static void init(SpearalFactory spearalFactory, EntityManagerFactory entityManagerFactory) {
+		SpearalContext context = spearalFactory.getContext();
+
 		Set<Class<?>> entityClasses = new HashSet<Class<?>>();
-		
 		for (ManagedType<?> managedType : entityManagerFactory.getMetamodel().getManagedTypes()) {
 			List<String> unfilterablePropertiesList = new ArrayList<String>();
 			for (SingularAttribute<?, ?> attribute : managedType.getSingularAttributes()) {
 				if (attribute.isId() || attribute.isVersion())
 					unfilterablePropertiesList.add(attribute.getName());
 			}
+			String[] unfilterableProperties = unfilterablePropertiesList.toArray(new String[unfilterablePropertiesList.size()]);
 			
 			Class<?> entityClass = managedType.getJavaType();
-			
-			String[] unfilterableProperties = unfilterablePropertiesList.toArray(new String[unfilterablePropertiesList.size()]);
-			spearalFactory.getContext().configure(new SimpleUnfilterablePropertiesProvider(entityClass, unfilterableProperties));
-			
+			context.configure(new SimpleUnfilterablePropertiesProvider(entityClass, unfilterableProperties));
 			entityClasses.add(entityClass);
 		}
-		
-		spearalFactory.getContext().configure(new EntityDescriptorFactory(entityClasses));
+		context.configure(new EntityDescriptorFactory(entityClasses));
 	}	
 }

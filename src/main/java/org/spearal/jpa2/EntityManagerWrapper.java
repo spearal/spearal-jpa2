@@ -35,20 +35,19 @@ import javax.persistence.criteria.CriteriaQuery;
 import javax.persistence.criteria.CriteriaUpdate;
 import javax.persistence.metamodel.Metamodel;
 
-import org.spearal.jpa2.impl.ProxyMerger;
+import org.spearal.jpa2.impl.PartialEntityResolver;
 
 /**
  * @author William DRAI
  */
-@SuppressWarnings("rawtypes")
 public class EntityManagerWrapper implements EntityManager {
 
 	private final EntityManager entityManager;
-	private final ProxyMerger proxyMerger;
+	private final PartialEntityResolver partialEntityResolver;
 
 	public EntityManagerWrapper(EntityManager entityManager) {
 		this.entityManager = entityManager;
-		this.proxyMerger = new ProxyMerger(entityManager);
+		this.partialEntityResolver = new PartialEntityResolver(entityManager);
 	}
 	
 	public EntityManager getWrappedEntityManager() {
@@ -56,16 +55,12 @@ public class EntityManagerWrapper implements EntityManager {
 	}
 
 	public <T> T merge(T entity) {
-		if (proxyMerger.isProxy(entity))
-			entity = proxyMerger.merge(entity);
-		
+		entity = partialEntityResolver.resolve(entity);
 		return entityManager.merge(entity);
 	}
 
 	public void persist(Object entity) {
-//		if (proxyMerger.isProxy(entity))
-//			proxyMerger.persist(entity);
-		
+		entity = partialEntityResolver.resolve(entity);
 		entityManager.persist(entity);
 	}
 
@@ -89,12 +84,12 @@ public class EntityManagerWrapper implements EntityManager {
 		entityManager.remove(entity);
 	}
 	
-	public void lock(Object arg0, LockModeType arg1, Map<String, Object> arg2) {
-		entityManager.lock(arg0, arg1, arg2);
+	public void lock(Object entity, LockModeType lockMode, Map<String, Object> properties) {
+		entityManager.lock(entity, lockMode, properties);
 	}
 
-	public void lock(Object arg0, LockModeType arg1) {
-		entityManager.lock(arg0, arg1);
+	public void lock(Object entity, LockModeType lockMode) {
+		entityManager.lock(entity, lockMode);
 	}
 
 	public void clear() {
@@ -109,16 +104,16 @@ public class EntityManagerWrapper implements EntityManager {
 		return entityManager.contains(entity);
 	}
 
-	public <T> T getReference(Class<T> arg0, Object arg1) {
-		return entityManager.getReference(arg0, arg1);
+	public <T> T getReference(Class<T> entityClass, Object primaryKey) {
+		return entityManager.getReference(entityClass, primaryKey);
 	}
 
-	public <T> EntityGraph<T> createEntityGraph(Class<T> entityClass) {
-		return entityManager.createEntityGraph(entityClass);
+	public <T> EntityGraph<T> createEntityGraph(Class<T> rootType) {
+		return entityManager.createEntityGraph(rootType);
 	}
 
-	public EntityGraph<?> createEntityGraph(String entityName) {
-		return entityManager.createEntityGraph(entityName);
+	public EntityGraph<?> createEntityGraph(String graphName) {
+		return entityManager.createEntityGraph(graphName);
 	}
 	
 	public <T> TypedQuery<T> createNamedQuery(String name, Class<T> entityClass) {
@@ -133,68 +128,72 @@ public class EntityManagerWrapper implements EntityManager {
 		return entityManager.createNamedStoredProcedureQuery(name);
 	}
 
-	public Query createNativeQuery(String name, Class entityClass) {
-		return entityManager.createNativeQuery(name, entityClass);
+	@SuppressWarnings("rawtypes")
+	public Query createNativeQuery(String sqlString, Class resultClass) {
+		return entityManager.createNativeQuery(sqlString, resultClass);
 	}
 
-	public Query createNativeQuery(String name, String sql) {
-		return entityManager.createNativeQuery(name, sql);
+	public Query createNativeQuery(String sqlString, String resultSetMapping) {
+		return entityManager.createNativeQuery(sqlString, resultSetMapping);
 	}
 
-	public Query createNativeQuery(String name) {
-		return entityManager.createNativeQuery(name);
+	public Query createNativeQuery(String sqlString) {
+		return entityManager.createNativeQuery(sqlString);
 	}
 
-	public Query createQuery(CriteriaDelete criteria) {
-		return entityManager.createQuery(criteria);
+	@SuppressWarnings("rawtypes")
+	public Query createQuery(CriteriaDelete deleteQuery) {
+		return entityManager.createQuery(deleteQuery);
 	}
 
-	public <T> TypedQuery<T> createQuery(CriteriaQuery<T> query) {
-		return entityManager.createQuery(query);
+	public <T> TypedQuery<T> createQuery(CriteriaQuery<T> criteriaQuery) {
+		return entityManager.createQuery(criteriaQuery);
 	}
 
-	public Query createQuery(CriteriaUpdate criteria) {
-		return entityManager.createQuery(criteria);
+	@SuppressWarnings("rawtypes")
+	public Query createQuery(CriteriaUpdate updateQuery) {
+		return entityManager.createQuery(updateQuery);
 	}
 
-	public <T> TypedQuery<T> createQuery(String name, Class<T> entityClass) {
-		return entityManager.createQuery(name, entityClass);
+	public <T> TypedQuery<T> createQuery(String qlString, Class<T> resultClass) {
+		return entityManager.createQuery(qlString, resultClass);
 	}
 
-	public Query createQuery(String arg0) {
-		return entityManager.createQuery(arg0);
+	public Query createQuery(String qlString) {
+		return entityManager.createQuery(qlString);
 	}
 
-	public StoredProcedureQuery createStoredProcedureQuery(String arg0, Class... arg1) {
-		return entityManager.createStoredProcedureQuery(arg0, arg1);
+	@SuppressWarnings("rawtypes")
+	public StoredProcedureQuery createStoredProcedureQuery(String procedureName, Class... resultClasses) {
+		return entityManager.createStoredProcedureQuery(procedureName, resultClasses);
 	}
 
-	public StoredProcedureQuery createStoredProcedureQuery(String arg0, String... arg1) {
-		return entityManager.createStoredProcedureQuery(arg0, arg1);
+	public StoredProcedureQuery createStoredProcedureQuery(String procedureName, String... resultSetMappings) {
+		return entityManager.createStoredProcedureQuery(procedureName, resultSetMappings);
 	}
 
-	public StoredProcedureQuery createStoredProcedureQuery(String arg0) {
-		return entityManager.createStoredProcedureQuery(arg0);
+	public StoredProcedureQuery createStoredProcedureQuery(String procedureName) {
+		return entityManager.createStoredProcedureQuery(procedureName);
 	}
 
-	public void detach(Object arg0) {
-		entityManager.detach(arg0);
+	public void detach(Object entity) {
+		entityManager.detach(entity);
 	}
 
-	public <T> T find(Class<T> arg0, Object arg1, LockModeType arg2, Map<String, Object> arg3) {
-		return entityManager.find(arg0, arg1, arg2, arg3);
+	public <T> T find(Class<T> entityClass, Object primaryKey, LockModeType lockMode, Map<String,Object> properties) {
+		return entityManager.find(entityClass, primaryKey, lockMode, properties);
 	}
 
-	public <T> T find(Class<T> arg0, Object arg1, LockModeType arg2) {
-		return entityManager.find(arg0, arg1, arg2);
+	public <T> T find(Class<T> entityClass, Object primaryKey, LockModeType lockMode) {
+		return entityManager.find(entityClass, primaryKey, lockMode);
 	}
 
-	public <T> T find(Class<T> arg0, Object arg1, Map<String, Object> arg2) {
-		return entityManager.find(arg0, arg1, arg2);
+	public <T> T find(Class<T> entityClass, Object primaryKey, Map<String,Object> properties) {
+		return entityManager.find(entityClass, primaryKey, properties);
 	}
 
-	public <T> T find(Class<T> arg0, Object arg1) {
-		return entityManager.find(arg0, arg1);
+	public <T> T find(Class<T> entityClass, Object primaryKey) {
+		return entityManager.find(entityClass, primaryKey);
 	}
 
 	public void flush() {
@@ -209,12 +208,12 @@ public class EntityManagerWrapper implements EntityManager {
 		return entityManager.getDelegate();
 	}
 
-	public EntityGraph<?> getEntityGraph(String arg0) {
-		return entityManager.getEntityGraph(arg0);
+	public EntityGraph<?> getEntityGraph(String graphName) {
+		return entityManager.getEntityGraph(graphName);
 	}
 
-	public <T> List<EntityGraph<? super T>> getEntityGraphs(Class<T> arg0) {
-		return entityManager.getEntityGraphs(arg0);
+	public <T> List<EntityGraph<? super T>> getEntityGraphs(Class<T> entityClass) {
+		return entityManager.getEntityGraphs(entityClass);
 	}
 
 	public EntityManagerFactory getEntityManagerFactory() {
@@ -225,8 +224,8 @@ public class EntityManagerWrapper implements EntityManager {
 		return entityManager.getFlushMode();
 	}
 
-	public LockModeType getLockMode(Object arg0) {
-		return entityManager.getLockMode(arg0);
+	public LockModeType getLockMode(Object entity) {
+		return entityManager.getLockMode(entity);
 	}
 
 	public Metamodel getMetamodel() {
@@ -253,15 +252,15 @@ public class EntityManagerWrapper implements EntityManager {
 		entityManager.joinTransaction();
 	}
 	
-	public void setFlushMode(FlushModeType arg0) {
-		entityManager.setFlushMode(arg0);
+	public void setFlushMode(FlushModeType flushMode) {
+		entityManager.setFlushMode(flushMode);
 	}
 
-	public void setProperty(String arg0, Object arg1) {
-		entityManager.setProperty(arg0, arg1);
+	public void setProperty(String propertyName, Object value) {
+		entityManager.setProperty(propertyName, value);
 	}
 
-	public <T> T unwrap(Class<T> arg0) {
-		return entityManager.unwrap(arg0);
+	public <T> T unwrap(Class<T> cls) {
+		return entityManager.unwrap(cls);
 	}
 }
