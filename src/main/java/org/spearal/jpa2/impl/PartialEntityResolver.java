@@ -271,11 +271,13 @@ public class PartialEntityResolver {
 		return entity;
 	}
 	
-	private Object getId(Object entity, IdentifiableType<?> identifiableType) {
+	private Object getId(PartialObjectProxy entity, IdentifiableType<?> identifiableType) {
 		
 		// Single @Id or @EmbeddedId
 		if (identifiableType.hasSingleIdAttribute()) {
 			SingularAttribute<?, ?> idAttribute = identifiableType.getId(identifiableType.getIdType().getJavaType());
+			if (!entity.$isDefined(idAttribute.getName()))
+				return null;
 			return getAttributeAccessor(idAttribute).getter.getValue(entity);
 		}
 		
@@ -284,8 +286,10 @@ public class PartialEntityResolver {
 		Class<?> idClassClass = idAttributes[0].getJavaMember().getDeclaringClass();
 		Object id = newInstance(idClassClass);
 		for (SingularAttribute<?, ?> idAttribute : identifiableType.getIdClassAttributes()) {
-			Object value = getAttributeAccessor(idAttribute).getter.getValue(entity);
-			getIdClassFieldAccessor(idClassClass, idAttribute.getName()).setter.setValue(id, value);
+			if (entity.$isDefined(idAttribute.getName())) {
+				Object value = getAttributeAccessor(idAttribute).getter.getValue(entity);
+				getIdClassFieldAccessor(idClassClass, idAttribute.getName()).setter.setValue(id, value);
+			}
 		}
 		return id;
 	}
