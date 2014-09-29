@@ -83,20 +83,13 @@ public class EntityDescriptorFactory implements FilteredBeanDescriptorFactory {
 		for (int i = 0; i < properties.length; i++) {
 			if (properties[i] == null)
 				continue;
-			
-			try {
-				Object propertyValue = properties[i].get(value);
-				if (!persistenceUtil.isLoaded(propertyValue)) {
-					if (!cloned) {
-						properties = properties.clone();
-						cloned = true;
-					}
-					properties[i] = null;
+			if (!persistenceUtil.isLoaded(value, properties[i].getName())) {
+				if (!cloned) {
+					properties = properties.clone();
+					cloned = true;
 				}
+				properties[i] = null;
 			}
-			catch (Exception e) {
-				throw new RuntimeException("Could not get property value for: " + properties[i], e);
-			}			
 		}
 		
 		String description = ClassDescriptionUtil.createAliasedDescription(context, type, properties);
