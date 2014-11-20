@@ -1,0 +1,246 @@
+= Spearal JPA2
+
+== What is Spearal?
+
+Spearal is a compact binary format for exchanging arbitrary complex data between various endpoints such as Java EE, JavaScript / HTML, Android and iOS applications.
+
+Spearal-JPA2 is an extension of Spearal-Java which supports JPA2+ entities and deals with uninitialized properties.
+
+== How to get and build the project?
+
+First, you need to get, build and install Spearal-Java:
+
+[source,bash]
+----
+$ git clone https://github.com/spearal/spearal-java.git
+$ cd spearal-java
+$ ./gradlew install
+----
+
+Then, you can build Spearal JPA2:
+
+[source,bash]
+----
+$ cd ..
+$ git clone https://github.com/spearal/spearal-jpa2.git
+$ cd spearal-jpa2
+$ ./gradlew build
+----
+
+The library can then be found in the `build/libs` directory.
+
+
+== How to use the library?
+
+Spearal-JPA2 contains two main elements that can be used separately:
+
+- A JPA-aware `EntityDescriptorFactory` that can determine managed entities and handle lazy properties so they are processed correctly during serialization.
+- A wrapper for `EntityManager` that is able to merge partial objects deserialized by Spearal in a JPA persistence context.
+
+The Spring integration provides a very simple way to configure everything in XML or Java Config (see https://github.com/spearal/spearal-spring/blob/master/README.adoc).
+It a bit less transparent with CDI or plain JAX-RS, and in any case it can be useful to know what these two elements do and how they can be configured at a low-level. 
+
+
+=== The EntityDescriptorFactory
+
+The `EntityDescriptorFactory`'s role is to retrieve the JPA metamodel from the `EntityManagerFactory`, build the corresponding object descriptors including
+information about lazy associations and special properties (id, version), and register them in the `SpearalFactory` so they can be used during serialization.
+It can be configured as follows:
+
+[source,java]
+----
+SpearalConfigurator.init(spearalFactory, entityManagerFactory);
+----
+
+Of course that means that you have to call it from some place where the `SpearalFactory` and the `EntityManagerFactory` have already been created.
+When using 'standard' frameworks such as Spring, CDI or JAX-RS, it is recommended to use the corresponding Spearal integration library that will do this 
+automatically.
+
+For example, with a plain JAX-RS application without CDI and without a managed `EntityManagerFactory`:
+
+[source,java]
+----
+public class HelloApplication extends Application {
+	
+    private final SpearalFactory spearalFactory;
+	
+    private final EntityManagerFactory entityManagerFactory;
+	
+    public HelloApplication() {
+    	spearalFactory = new DefaultSpearalFactory();
+        entityManagerFactory = Persistence.createEntityManagerFactory("hello-pu");
+        SpearalConfigurator.init(spearalFactory, entityManagerFactory);
+        ...
+    }
+    
+    ...
+}
+----
+
+Or with a managed `EntityManagerFactory` and a CDI-enabled application:
+
+@ApplicationPath("/resources")
+public class PersonApplication extends Application {
+
+    @PersistenceUnit
+    private EntityManagerFactory entityManagerFactory;
+    
+    @Produces @ApplicationScoped
+    public SpearalFactory getSpearalFactory() {
+        SpearalFactory spearalFactory = new DefaultSpearalFactory();
+        SpearalConfigurator.init(spearalFactory, entityManagerFactory);
+        return spearalFactory;
+    }
+}
+
+
+=== The EntityManagerWrapper
+
+The `EntityManagerWrapper` as its name indicates is an extension of the JPA `EntityManager` which overrides the merge operation 
+to be able to merge partial objects in the persistence context.
+
+As a minimal 'setup', you can use the wrapper manually to merge objects in your application:
+
+[source,java]
+----
+@Inject
+EntityManager entityManager;
+
+public Person save(Person person) {
+	return new EntityManagerWrapper(entityManager).merge(person);
+}
+----
+
+This is verbose and far from ideal, so it's better to do this wrapping in a central place. For example with plain JAX-RS with 
+a non-managed persistence unit, you can wrap the `EntityManagerFactory` in the main application and expose it so resources 
+will get wrapped `EntityManager` instances:
+
+[source,java]
+----
+@ApplicationPath("/app")
+public class HelloApplication extends Application {
+	
+	private final SpearalFactory spearalFactory = new DefaultSpearalFactory();
+	
+	private final EntityManagerFactory entityManagerFactory;
+	
+	public HelloApplication() {
+		EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("hello-pu");
+		SpearalConfigurator.init(spearalFactory, entityManagerFactory);
+		this.entityManagerFactory = new EntityManagerFactoryWrapper(entityManagerFactory);
+	}
+	
+	public SpearalFactory getSpearalFactory() {
+		return spearalFactory;
+	}
+	
+	public EntityManagerFactory getEntityManagerFactory() {
+		return entityManagerFactory;
+	}
+}
+----
+
+[source,java]
+----
+@Context
+private Application application;
+
+private EntityManager createEntityManager() {
+	return ((HelloApplication)application).getEntityManagerFactory().createEntityManager();
+}
+
+@POST
+public Hello hello(Hello request) {
+	EntityManager entityManager = createEntityManager();
+	EntityTransaction tx = entityManager.getTransaction();
+	tx.begin();
+	
+	Hello result = entityManager.merge(request);
+	
+	entityManager.flush();
+	tx.commit();
+	entityManager.close();
+	
+	return result;
+}
+----
+
+Or with CDI, you can wrap the `EntityManager` before exposing it with `@Produce`:
+
+[source,java]
+----
+@ApplicationPath("/resources")
+public class PersonApplication extends Application {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+    
+    @Produces @ApplicationScoped
+    public SpearalFactory getSpearalFactory() {
+        return new DefaultSpearalFactory();
+    }
+    
+    @Produces
+    public EntityManager getEntityManager() {
+        return new EntityManagerWrapper(entityManager);
+    }
+}
+----
+
+And then simply use it with:
+
+[source,java]
+----
+@Inject
+private EntityManager entityManager;
+----
+
+The CDI integration is in fact a bit more powerful and is able to do almost everything automatically provided you expose your `EntityManager` with `@Produces`:
+
+[source,java]
+----
+@ApplicationPath("/resources")
+public class PersonApplication extends Application {
+
+    @PersistenceContext
+    private EntityManager entityManager;
+    
+    @Produces @ApplicationScoped
+    public SpearalFactory getSpearalFactory() {
+        return new DefaultSpearalFactory();
+    }
+    
+    @Produces
+    public EntityManager getEntityManager() {
+        return entityManager;
+    }
+}
+----
+
+Note that this also transparently configures the `EntityDescriptorFactory`. It's completely equivalent to:
+
+[source,java]
+----
+@ApplicationPath("/resources")
+public class PersonApplication extends Application {
+
+    @PersistenceUnit
+    private EntityManagerFactory entityManagerFactory;
+
+    @PersistenceContext
+    private EntityManager entityManager;
+    
+    @Produces @ApplicationScoped
+    public SpearalFactory getSpearalFactory() {
+        SpearalFactory spearalFactory = new DefaultSpearalFactory();
+        SpearalConfigurator.init(spearalFactory, entityManagerFactory);
+        return spearalFactory;
+    }
+    
+    @Produces
+    public EntityManager getEntityManager() {
+        return new EntityManagerWrapper(entityManager);
+    }
+}
+----
+
