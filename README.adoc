@@ -37,14 +37,14 @@ Spearal-JPA2 contains two main elements that can be used separately:
 - A JPA-aware `EntityDescriptorFactory` that can determine managed entities and handle lazy properties so they are processed correctly during serialization.
 - A wrapper for `EntityManager` that is able to merge partial objects deserialized by Spearal in a JPA persistence context.
 
-The Spring integration provides a very simple way to configure everything in XML or Java Config (see https://github.com/spearal/spearal-spring/blob/master/README.adoc).
-It a bit less transparent with CDI or plain JAX-RS, and in any case it can be useful to know what these two elements do and how they can be configured at a low-level. 
+The Spring integration provides a very simple way to configure everything in XML or Java Config (see https://github.com/spearal/spearal-spring/blob/master/README.adoc[here]).
+It's a bit less transparent with CDI or plain JAX-RS, and in any case it can be useful to know what these two elements do and how they can be configured and used at a lower level. 
 
 
 === The EntityDescriptorFactory
 
 The `EntityDescriptorFactory`'s role is to retrieve the JPA metamodel from the `EntityManagerFactory`, build the corresponding object descriptors including
-information about lazy associations and special properties (id, version), and register them in the `SpearalFactory` so they can be used during serialization.
+information about lazy associations and special properties (such as `id` and `version`), and register them in the `SpearalFactory` so they can be used during serialization.
 It can be configured as follows:
 
 [source,java]
@@ -53,7 +53,7 @@ SpearalConfigurator.init(spearalFactory, entityManagerFactory);
 ----
 
 Of course that means that you have to call it from some place where the `SpearalFactory` and the `EntityManagerFactory` have already been created.
-When using 'standard' frameworks such as Spring, CDI or JAX-RS, it is recommended to use the corresponding Spearal integration library that will do this 
+When using standard frameworks such as Spring, CDI or JAX-RS, it is recommended to use the corresponding Spearal integration library that will do this 
 automatically.
 
 For example, with a plain JAX-RS application without CDI and without a managed `EntityManagerFactory`:
@@ -79,6 +79,8 @@ public class HelloApplication extends Application {
 
 Or with a managed `EntityManagerFactory` and a CDI-enabled application:
 
+[source,java]
+----
 @ApplicationPath("/resources")
 public class PersonApplication extends Application {
 
@@ -92,6 +94,7 @@ public class PersonApplication extends Application {
         return spearalFactory;
     }
 }
+----
 
 
 === The EntityManagerWrapper
