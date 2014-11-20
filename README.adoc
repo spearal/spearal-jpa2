@@ -61,13 +61,13 @@ For example, with a plain JAX-RS application without CDI and without a managed `
 [source,java]
 ----
 public class HelloApplication extends Application {
-	
+    
     private final SpearalFactory spearalFactory;
-	
+    
     private final EntityManagerFactory entityManagerFactory;
-	
+    
     public HelloApplication() {
-    	spearalFactory = new DefaultSpearalFactory();
+        spearalFactory = new DefaultSpearalFactory();
         entityManagerFactory = Persistence.createEntityManagerFactory("hello-pu");
         SpearalConfigurator.init(spearalFactory, entityManagerFactory);
         ...
@@ -110,7 +110,7 @@ As a minimal 'setup', you can use the wrapper manually to merge objects in your 
 EntityManager entityManager;
 
 public Person save(Person person) {
-	return new EntityManagerWrapper(entityManager).merge(person);
+    return new EntityManagerWrapper(entityManager).merge(person);
 }
 ----
 
@@ -122,24 +122,24 @@ will get wrapped `EntityManager` instances:
 ----
 @ApplicationPath("/app")
 public class HelloApplication extends Application {
-	
-	private final SpearalFactory spearalFactory = new DefaultSpearalFactory();
-	
-	private final EntityManagerFactory entityManagerFactory;
-	
-	public HelloApplication() {
-		EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("hello-pu");
-		SpearalConfigurator.init(spearalFactory, entityManagerFactory);
-		this.entityManagerFactory = new EntityManagerFactoryWrapper(entityManagerFactory);
-	}
-	
-	public SpearalFactory getSpearalFactory() {
-		return spearalFactory;
-	}
-	
-	public EntityManagerFactory getEntityManagerFactory() {
-		return entityManagerFactory;
-	}
+    
+    private final SpearalFactory spearalFactory = new DefaultSpearalFactory();
+    
+    private final EntityManagerFactory entityManagerFactory;
+    
+    public HelloApplication() {
+        EntityManagerFactory entityManagerFactory = Persistence.createEntityManagerFactory("hello-pu");
+        SpearalConfigurator.init(spearalFactory, entityManagerFactory);
+        this.entityManagerFactory = new EntityManagerFactoryWrapper(entityManagerFactory);
+    }
+    
+    public SpearalFactory getSpearalFactory() {
+        return spearalFactory;
+    }
+    
+    public EntityManagerFactory getEntityManagerFactory() {
+        return entityManagerFactory;
+    }
 }
 ----
 
@@ -149,22 +149,22 @@ public class HelloApplication extends Application {
 private Application application;
 
 private EntityManager createEntityManager() {
-	return ((HelloApplication)application).getEntityManagerFactory().createEntityManager();
+    return ((HelloApplication)application).getEntityManagerFactory().createEntityManager();
 }
 
 @POST
 public Hello hello(Hello request) {
-	EntityManager entityManager = createEntityManager();
-	EntityTransaction tx = entityManager.getTransaction();
-	tx.begin();
-	
-	Hello result = entityManager.merge(request);
-	
-	entityManager.flush();
-	tx.commit();
-	entityManager.close();
-	
-	return result;
+    EntityManager entityManager = createEntityManager();
+    EntityTransaction tx = entityManager.getTransaction();
+    tx.begin();
+    
+    Hello result = entityManager.merge(request);
+    
+    entityManager.flush();
+    tx.commit();
+    entityManager.close();
+    
+    return result;
 }
 ----
 
