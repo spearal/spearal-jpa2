@@ -34,6 +34,9 @@ compile 'org.spearal:spearal-java:${spearalVersion}'
 compile 'org.spearal:spearal-jpa2:${spearalVersion}'
 ----
 
+In any other case, just download the https://github.com/spearal/spearal-java/releases[Spearal-Java] and https://github.com/spearal/spearal-jpa2/releases[Spearal-JPA2] jars from github and add them to your classpath.
+
+
 Spearal-JPA2 contains two main elements that can be used separately:
 
 - A JPA-aware `EntityDescriptorFactory` that can determine managed entities and handle lazy properties so they are processed correctly during serialization.
