@@ -6,31 +6,33 @@ Spearal is a compact binary format for exchanging arbitrary complex data between
 
 Spearal-JPA2 is an extension of Spearal-Java which supports JPA2+ entities and deals with uninitialized properties.
 
-== How to get and build the project?
-
-First, you need to get, build and install Spearal-Java:
-
-[source,bash]
-----
-$ git clone https://github.com/spearal/spearal-java.git
-$ cd spearal-java
-$ ./gradlew install
-----
-
-Then, you can build Spearal JPA2:
-
-[source,bash]
-----
-$ cd ..
-$ git clone https://github.com/spearal/spearal-jpa2.git
-$ cd spearal-jpa2
-$ ./gradlew build
-----
-
-The library can then be found in the `build/libs` directory.
-
 
 == How to use the library?
+
+The library is available in the Maven central repository, so with Maven or Gradle you simply have to reference 
+the dependency on the library in your build system:
+
+[source,xml]
+.Maven
+----
+<dependency>
+	<groupId>org.spearal</groupId>
+	<artifactId>spearal-java</artifactId>
+	<version>${spearal.version}</version>
+</dependency>
+<dependency>
+	<groupId>org.spearal</groupId>
+	<artifactId>spearal-jpa2</artifactId>
+	<version>${spearal.version}</version>
+</dependency>
+----
+
+[source,java]
+.Gradle
+----
+compile 'org.spearal:spearal-java:${spearalVersion}'
+compile 'org.spearal:spearal-jpa2:${spearalVersion}'
+----
 
 Spearal-JPA2 contains two main elements that can be used separately:
 
@@ -143,28 +145,34 @@ public class HelloApplication extends Application {
 }
 ----
 
+And use it in your resources:
+
 [source,java]
 ----
-@Context
-private Application application;
-
-private EntityManager createEntityManager() {
-    return ((HelloApplication)application).getEntityManagerFactory().createEntityManager();
-}
-
-@POST
-public Hello hello(Hello request) {
-    EntityManager entityManager = createEntityManager();
-    EntityTransaction tx = entityManager.getTransaction();
-    tx.begin();
+@Path("/hello")
+public class HelloService {
     
-    Hello result = entityManager.merge(request);
+    @Context
+    private Application application;
     
-    entityManager.flush();
-    tx.commit();
-    entityManager.close();
+    private EntityManager createEntityManager() {
+        return ((HelloApplication)application).getEntityManagerFactory().createEntityManager();
+    }
     
-    return result;
+    @POST
+    public Hello hello(Hello request) {
+        EntityManager entityManager = createEntityManager();
+        EntityTransaction tx = entityManager.getTransaction();
+        tx.begin();
+        
+        Hello result = entityManager.merge(request);
+        
+        entityManager.flush();
+        tx.commit();
+        entityManager.close();
+        
+        return result;
+    }
 }
 ----
 
@@ -190,7 +198,7 @@ public class PersonApplication extends Application {
 }
 ----
 
-And then simply use it with:
+And then simply use it in your resources with:
 
 [source,java]
 ----
@@ -246,4 +254,28 @@ public class PersonApplication extends Application {
     }
 }
 ----
+
+
+== How to get and build the project?
+
+First, you need to get, build and install Spearal-Java:
+
+[source,bash]
+----
+$ git clone https://github.com/spearal/spearal-java.git
+$ cd spearal-java
+$ ./gradlew install
+----
+
+Then, you can build Spearal JPA2:
+
+[source,bash]
+----
+$ cd ..
+$ git clone https://github.com/spearal/spearal-jpa2.git
+$ cd spearal-jpa2
+$ ./gradlew build
+----
+
+The library can then be found in the `build/libs` directory.
 
